@@ -30,6 +30,21 @@ class FreqListenerBadModulation(Exception):
 class RadioReceiverFrequencyOutOfBounds(Exception):
     pass
 
+class RadioSpectrum(object):
+    
+    # upper limit at 1 Thz
+    _upper_rf_limit = 1000000000000
+    # lower limit at 3 Khz
+    _lower_rf_limit = 3000
+    
+    def get_upper_frequency(self):
+        """Return the upper frequency of this spectrum."""
+        return self._upper_rf_limit
+    
+    def get_lower_frequency(self):
+        """Return the lower frequency of this spectrum."""
+        return self._lower_rf_limit
+
 class FreqListener:
     """Define the subsystem to listen to a given radio frequency.
     This includes the GNU radio blocks to tune and capture information 
@@ -64,10 +79,18 @@ class FreqListener:
     def set_frequency(self, frequency):
         """Sets the frequency for the listener.
         frequency -- frequency in Hz (integer)"""
+        
+        rs = RadioSpectrum()
+        # radio spectrum limits
+        rs_lower_freq = rs.get_lower_frequency()
+        rs_upper_freq = rs.get_upper_frequency()
+        
         if not float(frequency).is_integer():
             raise ValueError,('Frequency is not a whole number')
-        elif frequency < 1:
-            raise ValueError,('Frequency must be ate least 1 hz')
+        elif frequency < rs_lower_freq or frequency > rs_upper_freq:
+            msg = ('Frequency must be above {fl} hz '
+                   'and below {fu} hz').format(fl=rs_lower_freq, fu=rs_upper_freq)
+            raise ValueError, msg
         else:
             self._frequency = int(frequency)
 
@@ -124,15 +147,21 @@ class FreqListener:
         
         return self._frequency - (self._bandwidth/2)
 
+
 class FreqListenerList(list):
     """Define a list of Frequency listener objects."""
 
-    def append(self, receiver):
-        # add a receiver to the list
-        if not isinstance(receiver, FreqListener):
+    def append(self, listener):
+        """add a listener to the list.
+        listener -- FreqListener
+        append will not allow duplicate ids to be added."""
+        
+        #TODO: check for duplicate ids when adding
+
+        if not isinstance(listener, FreqListener):
             raise TypeError, 'item is not of type FreqListener'
                 
-        super(FreqListenerList, self).append(receiver)
+        super(FreqListenerList, self).append(listener)
 
 
 class RadioReceiver(object):
@@ -157,42 +186,47 @@ class RadioReceiver(object):
     _center_freq = 0
     
     def __init__(self):
+        rs = RadioSpectrum()
         self._type = 'base_receiver'
         self._cap_bw = 1000
-        self._cap_freq_min = 11000
-        self._cap_freq_max = 13000      
+        self._cap_freq_min = rs.get_lower_frequency()
+        self._cap_freq_max = rs.get_upper_frequency()  
         self._center_freq = self._cap_freq_min
 
-    def add_frequency_listener(self, frequency_listener):
+    def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Receiver's listener list.
-        frequency_listener - FreqListener"""
+        listener -- FreqListener"""
  
-        if frequency_listener.get_upper_frequency() > self._cap_freq_max:
+        if listener.get_upper_frequency() > self._cap_freq_max:
             msg = ("The listener's upper frequency ({lf}) is above the "
                    "receiver's maximum frequency ({mf})").format(
-                       lf=frequency_listener.get_upper_frequency(),
+                       lf=listener.get_upper_frequency(),
                        mf=self._cap_freq_max)
             raise RadioReceiverFrequencyOutOfBounds, msg
             
-        if frequency_listener.get_lower_frequency() < self._cap_freq_min:
+        if listener.get_lower_frequency() < self._cap_freq_min:
             msg = ("The listener's lower frequency ({lf}) is below the "
                   "receiver's minimum frequency ({mf})").format(
-                      lf=frequency_listener.get_upper_frequency(),
+                      lf=listener.get_upper_frequency(),
                       mf=self._cap_freq_min) 
             raise RadioReceiverFrequencyOutOfBounds, msg
            
-        self._listener_list.append(frequency_listener)
+        self._listener_list.append(listener)
 
     def get_upper_frequency(self):
+        """Return the upper frequency on this receiver."""
         return self._cap_freq_max
     
     def get_lower_frequency(self):
+        """Return the lower frequency on this receiver."""
         return self._cap_freq_min
     
     def get_bandwidth_capability(self):
+        """Return the bandwidth capability for this receiver."""
         return self._cap_bw
     
     def get_type(self):
+        """Return the type of this receiver."""
         return self._type
 
 
@@ -203,7 +237,7 @@ class RTL2838R820T2RadioReceiver(RadioReceiver):
     def __init__(self):
         self._type = 'RTL2838_R820T2'
         self._cap_bw = 2400000
-        self._cap_freq_min = 25
+        self._cap_freq_min = 25000
         self._cap_freq_max = 1750000000      
         self._center_freq = self._cap_freq_min
 
@@ -212,7 +246,12 @@ class RadioReceiverList(list):
     """Define a list of RadioReceiver objects."""
 
     def append(self, receiver):
-        # add a receiver to the list
+        """add a receiver to the list
+        receiver - a RadioReceiver to add to the list.
+        append will not allow duplicate ids to be added."""
+               
+        #TODO: check for duplicate ids when adding
+        
         if not isinstance(receiver, RadioReceiver):
             raise TypeError, 'item is not of type RadioReceiver'
              

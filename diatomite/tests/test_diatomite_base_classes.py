@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 """
-    diatomite - monitoring radio frequency activity
+    Tests for the diatomite monitoring system.
     Copyright (C) 2017 Duarte Alencastre
 
     This program is free software: you can redistribute it and/or modify
@@ -42,10 +42,48 @@ class testRadioReceiverList(object):
         radio_receiver_list = diatomite_base_classes.RadioReceiverList()
          
         radio_receiver_list.append(radio_receiver)
-        
-        
-class testFreqListenerList(object):
+
+class testRadioSpectrum(object):
+    """Test RadioSpectrum."""
     
+    _radio_spectrum = diatomite_base_classes.RadioSpectrum()
+    
+    def test_get_upper_frequency(self):
+        """Test retrieving the upper frequency of the RadioSpectrum.
+        Also check it is a whole number and larger than zero."""
+ 
+        upper_from_radio_spectrum = self._radio_spectrum.get_upper_frequency()
+                
+        if not float(upper_from_radio_spectrum).is_integer():
+            msg = ('{o} not returning a valid upper frequency (number is not'
+                   ' whole).').format(o=type(self._radio_spectrum).__name__)
+            assert False, msg
+             
+        if not upper_from_radio_spectrum >= 1:
+            msg  =('{o} not returning a valid upper frequency (number is lower '
+                   'than 1).').format(o=type(self._radio_spectrum).__name__)
+            assert False, msg 
+           
+    def test_get_lower_frequency(self):
+        """Test retrieving the lower frequency of the RadioSpectrum.
+          Also check it is a whole number and larger than zero."""
+           
+
+        lower_from_radio_spectrum = self._radio_spectrum.get_lower_frequency()
+         
+        if not float(lower_from_radio_spectrum).is_integer():
+            msg = ('{o} not returning a valid lower frequency (number is not'
+                   ' whole).').format(o=type(self._radio_spectrum).__name__)
+            assert False, msg
+             
+        if not lower_from_radio_spectrum >= 1:
+            msg = ('{o} not returning a valid lower frequency (number is lower'
+                   ' than 1).').format(o=type(self._radio_spectrum).__name__)
+            assert False, msg
+    
+
+class testFreqListenerList(object):
+    """Test FreqListenerList."""
     def test_append_with_FreqListener_fail(self):
         """adding an object not of type FreqListenerList should raise a TypeError."""
         
@@ -67,7 +105,8 @@ class testFreqListenerList(object):
 class testFreqListener:
     
     def test_set_and_get_id(self):
-        """Test setting and retrieving frequency id, Checks that string is stored as lower case."""
+        """Test setting and retrieving frequency id, Checks that string is 
+        stored as lower case."""
         id_to_set = 'test_id123-A'
         freq_listener = diatomite_base_classes.FreqListener()
         freq_listener.set_id(id_to_set)
@@ -91,7 +130,9 @@ class testFreqListener:
                      
     def test_set_and_get_frequency(self):
         """Test setting and retrieving frequency."""
-        frequency_to_set = 123
+        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum_minimums = radio_spectrum.get_lower_frequency()
+        frequency_to_set = radio_spectrum_minimums + 1000
         freq_listener = diatomite_base_classes.FreqListener()
         freq_listener.set_frequency(frequency_to_set)
         
@@ -99,6 +140,41 @@ class testFreqListener:
         
         if not frequency_to_set == frequency_from_fl:
             assert False, 'Frequency that was set was not returned correctly'
+            
+    def test_set_frequency_below_radio_spectrum_minimums(self):
+        """Test setting the frequency below the radio spectrum minimums."""
+        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum_minimums = radio_spectrum.get_lower_frequency()
+        freq_listener = diatomite_base_classes.FreqListener()
+
+        if radio_spectrum_minimums <= 1000:
+            frequency_to_set =  radio_spectrum_minimums - 1
+        else:
+            frequency_to_set = radio_spectrum_minimums - 1000
+        
+        try:
+            freq_listener.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            msg = 'FreqListener accepted frequency below radio spectrum limits'
+            assert False, msg
+
+    def test_set_frequency_above_radio_spectrum_maximums(self):
+        """Test setting the frequency above the radio spectrum maximums."""
+        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum_maximums = radio_spectrum.get_upper_frequency()
+        freq_listener = diatomite_base_classes.FreqListener()
+
+        frequency_to_set =  radio_spectrum_maximums + 1000
+        
+        try:
+            freq_listener.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            msg = 'FreqListener accepted frequency above radio spectrum limits'
+            assert False, msg 
             
     def test_set_frequency_only_accepts_integer_numbers(self):
         """Test that set_frequency only accepts integer numbers."""
@@ -214,52 +290,65 @@ class testFreqListener:
 class testRadioReceiver(object):
  
     _radio_receiver = diatomite_base_classes.RadioReceiver()
-   
+    _radio_spectrum = diatomite_base_classes.RadioSpectrum()
+
     def test_get_upper_frequency(self):
         """Test retrieving the upper frequency of the RadioReceiver.
         Also check it is a whole number and larger than zero."""
-         
-        radio_receiver = self._radio_receiver
- 
-        upper_from_radio_receiver = radio_receiver.get_upper_frequency()
-         
+          
+        upper_from_radio_receiver = self._radio_receiver.get_upper_frequency()
+        rs_upper_frequency = self._radio_spectrum.get_upper_frequency()
+        
         if not float(upper_from_radio_receiver).is_integer():
-            assert False, '{o} not returning a valid upper frequency (number is not whole).'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} not returning a valid upper frequency (number is not'
+                   ' whole).').format(o=type(self._radio_receiver).__name__)
+            assert False, msg
              
-        if not upper_from_radio_receiver >= 1:
-            assert False, '{o} not returning a valid upper frequency (number is lower than 1).'.format(o=type(radio_receiver).__name__)
+        if not upper_from_radio_receiver <= rs_upper_frequency:
+            msg = ('{o} not returning a valid upper frequency (number is above'
+                   ' radio spectrum {urs}).').format(
+                       o=type(self._radio_receiver).__name__,
+                       urs=rs_upper_frequency)
+            assert False, msg
            
     def test_get_lower_frequency(self):
         """Test retrieving the lower frequency of the RadioReceiver.
           Also check it is a whole number and larger than zero."""
-           
-        radio_receiver = self._radio_receiver
  
-        lower_from_radio_receiver = radio_receiver.get_lower_frequency()
+        lower_from_radio_receiver = self._radio_receiver.get_lower_frequency()
+        rs_lower_frequency = self._radio_spectrum.get_lower_frequency()
          
         if not float(lower_from_radio_receiver).is_integer():
-            assert False, '{o} not returning a valid lower frequency (number is not whole).'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} not returning a valid lower frequency (number is not'
+                   ' whole).').format(o=type(self._radio_receiver).__name__)
+            assert False, msg
              
-        if not lower_from_radio_receiver >= 1:
-            assert False, '{o} not returning a valid lower frequency (number is lower than 1).'.format(o=type(radio_receiver).__name__)
+        if not lower_from_radio_receiver >= rs_lower_frequency:
+            msg = ('{o} not returning a valid lower frequency (number is below'
+                   ' radio spectrum {lrs}).').format(
+                       o=type(self._radio_receiver).__name__,
+                       lrs=rs_lower_frequency)
+            assert False, msg
  
  
     def test_get_bandwidth_capability(self):
         """Test retrieving the bandwidth capability of the RadioReceiver.
           Also check it is a whole number and larger than zero."""
-           
-        radio_receiver = self._radio_receiver
        
-        bandwidth_capability_from_radio_receiver = radio_receiver.get_bandwidth_capability()
+        bandwidth_capability_from_radio_receiver = self._radio_receiver.get_bandwidth_capability()
          
         if not float(bandwidth_capability_from_radio_receiver).is_integer():
-            assert False, '{o} not returning a valid bandwidth capability (number is not whole).'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} not returning a valid bandwidth capability (number is not'
+                   ' whole).').format(o=type(self._radio_receiver).__name__)
+            assert False, msg
              
         if not bandwidth_capability_from_radio_receiver >= 1:
-            assert False, '{o} not returning a valid bandwidth capability (number is lower than 1).'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} not returning a valid bandwidth capability (number is lower'
+                   ' than 1).').format(o=type(self._radio_receiver).__name__)
+            assert False, msg
  
     def test_add_frequency_listener(self):
-        """Test adding a frequency listener to a {o} object.""".format(o=type(self._radio_receiver).__name__)
+        """Test adding a frequency listener to a RadioReceiver object."""
          
         # get the radio's frequency limits
         upper_from_radio_receiver = self._radio_receiver.get_upper_frequency()
@@ -282,7 +371,8 @@ class testRadioReceiver(object):
         self._radio_receiver.add_frequency_listener(freq_listener)
  
     def test_add_frequency_listener_with_lower_frequency(self):
-        """Test adding a frequency listener to a RadioReceiver object below the RadioReceivers minimum frequency."""
+        """Test adding a frequency listener to a RadioReceiver object 
+        below the RadioReceivers minimum frequency."""
  
         radio_receiver = self._radio_receiver
  
@@ -299,10 +389,13 @@ class testRadioReceiver(object):
         except diatomite_base_classes.RadioReceiverFrequencyOutOfBounds:
             pass
         else:
-            assert False, '{o} accepted a frequency below the minimum frequency'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} accepted a frequency below the minimum'
+                   ' frequency').format(o=type(radio_receiver).__name__)
+            assert False, msg
  
     def test_add_frequency_listener_with_higher_frequency(self):
-        """Test adding a frequency listener to a RadioReceiver object above the RadioReceivers maximum frequency."""
+        """Test adding a frequency listener to a RadioReceiver object above 
+        the RadioReceivers maximum frequency."""
  
         radio_receiver = self._radio_receiver
  
@@ -319,7 +412,9 @@ class testRadioReceiver(object):
         except diatomite_base_classes.RadioReceiverFrequencyOutOfBounds:
             pass
         else:
-            assert False, '{o} accepted a frequency above the maximum frequency'.format(o=type(radio_receiver).__name__)
+            msg = ('{o} accepted a frequency above the maximum'
+                   ' frequency').format(o=type(radio_receiver).__name__)
+            assert False, msg
 
 
 class testRTL2838R820T2RadioReceiver(testRadioReceiver):
