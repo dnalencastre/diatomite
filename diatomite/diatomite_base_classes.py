@@ -22,13 +22,32 @@
 from string import ascii_letters, digits
 
 class FreqListenerBadIdError(Exception):
+    """Raised when a FreqListener is passed an empty id or with unacceptable characters."""
     pass
 
-class FreqListenerBadModulation(Exception):
+class FreqListenerInvalidModulation(Exception):
+    """Raised when  a FreqListener is passed an invalid modulation."""
     pass
 
 class RadioReceiverFrequencyOutOfBounds(Exception):
+    """Raised when a RadioReceiver is given a FreqListener that has frequency and
+    bandwidth that don't fit within the receiver's frequency abilites."""
     pass
+
+class RadioReceiverBadIdError(Exception):
+    """Raised when a FreqListener is passed an id with unacceptable characters."""
+    pass
+
+class RadioReceiverListIdNotUniqueError(Exception):
+    """Raised when a RadioReceiver with an already occurring id is added to a
+    RadioRecieverList."""
+    pass
+
+class FreqListenerListIdNotUniqueError(Exception):
+    """Raised when a FreqListener with an already occurring id is added to a
+    FreqlistenerList."""
+    pass
+
 
 class RadioSpectrum(object):
     
@@ -63,13 +82,24 @@ class FreqListener:
     # modulation
     _modulation = ''
     
+    def __init__(self, listener_id):
+        """init the FreqListener
+        listener_id -- the frequency listener id. 
+                Acceptable characters: ASCII characters, numbers, 
+                underscore, dash."""
+                
+        self.set_id(listener_id)
+    
     def set_id(self, listener_id):
         """Sets the frequency listener id.
         Converts alphabetic characters to lower case.
         listener_id -- the frequency listener id. 
                         Acceptable characters: ASCII characters, numbers, 
                         underscore, dash."""
-                
+        
+        if listener_id == '':
+            msg = 'Frequency id is empty'
+            raise FreqListenerBadIdError, msg
         if all(character in ascii_letters+digits+'_'+'-' for character in listener_id):
             self._id = listener_id.lower()
         else:
@@ -117,7 +147,7 @@ class FreqListener:
         else:
             msg = ('modulation must be one of {m}').format(
                 m=' '.join(acceptable_modulations))
-            raise FreqListenerBadModulation,msg
+            raise FreqListenerInvalidModulation,msg
                 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -156,18 +186,38 @@ class FreqListenerList(list):
         listener -- FreqListener
         append will not allow duplicate ids to be added."""
         
-        #TODO: check for duplicate ids when adding
+        current_id_list = self.get_listener_id_list()
 
+        # Checking of type must occur before checking of id
         if not isinstance(listener, FreqListener):
             raise TypeError, 'item is not of type FreqListener'
-                
-        super(FreqListenerList, self).append(listener)
+               
+        # obtain the listener id
+        id_to_add = listener.get_id()
+    
+        if id_to_add in current_id_list:
+            msg = "Frequency Listener's id is not unique"
+            raise FreqListenerListIdNotUniqueError, msg
 
+        super(FreqListenerList, self).append(listener)
+        
+    def get_listener_id_list(self):
+        """Obtain list of ids for all the members of the list"""
+        res = []
+
+        for listener in self:
+            fid = listener.get_id()
+            res.append(fid)
+        
+        return res
 
 class RadioReceiver(object):
     """Define a radio receiver.
     This usually relates to the radio hardware
     """
+    
+    # Id of the receiver
+    _id = ''
     
     # list of frequency listeners
     _listener_list = FreqListenerList()
@@ -185,13 +235,30 @@ class RadioReceiver(object):
     # define the currently tuned frequency
     _center_freq = 0
     
-    def __init__(self):
+    def __init__(self, receiver_id):
         rs = RadioSpectrum()
         self._type = 'base_receiver'
         self._cap_bw = 1000
         self._cap_freq_min = rs.get_lower_frequency()
         self._cap_freq_max = rs.get_upper_frequency()  
         self._center_freq = self._cap_freq_min
+        self.set_id(receiver_id)
+
+    def set_id(self, receiver_id):
+        """Sets the radio receiver's  id.
+        Converts alphabetic characters to lower case.
+        receiver_id -- the frequency listener id. 
+                        Acceptable characters: ASCII characters, numbers, 
+                        underscore, dash."""
+
+        if receiver_id == '':
+            msg = 'Receiver id is empty'
+            raise RadioReceiverBadIdError, msg
+        if all(character in ascii_letters+digits+'_'+'-' for character in receiver_id):
+            self._id = receiver_id.lower()
+        else:
+            msg = 'Frequency id contains can only contain AZaz09-_'
+            raise RadioReceiverBadIdError, msg
 
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Receiver's listener list.
@@ -212,6 +279,10 @@ class RadioReceiver(object):
             raise RadioReceiverFrequencyOutOfBounds, msg
            
         self._listener_list.append(listener)
+
+    def get_id(self):
+        """Returns the receiver's id."""
+        return self._id
 
     def get_upper_frequency(self):
         """Return the upper frequency on this receiver."""
@@ -249,13 +320,30 @@ class RadioReceiverList(list):
         """add a receiver to the list
         receiver - a RadioReceiver to add to the list.
         append will not allow duplicate ids to be added."""
-               
-        #TODO: check for duplicate ids when adding
+             
+        current_id_list = self.get_receiver_id_list()
         
         if not isinstance(receiver, RadioReceiver):
             raise TypeError, 'item is not of type RadioReceiver'
-             
+
+        # obtain the listener id
+        id_to_add = receiver.get_id()
+     
+        if id_to_add in current_id_list:
+            msg = "Radio Receiver's id is not unique"
+            raise RadioReceiverListIdNotUniqueError, msg
+              
         super(RadioReceiverList, self).append(receiver)
+
+    def get_receiver_id_list(self):
+        """Obtain list of ids for all the members of the list"""
+        res = []
+ 
+        for receiver in self:
+            fid = receiver.get_id()
+            res.append(fid)
+         
+        return res
 
 
 class Location:
@@ -288,6 +376,15 @@ class DiatomiteProbe:
     A diatomite probe has one or more radio receivers
     """
      
-    site = DiatomiteSite()
-    receivers=RadioReceiverList()
+    _site = DiatomiteSite()
+    _receiver_list=RadioReceiverList()
+    
+    def add_radio_receiver(self, receiver):
+        """Add a FreqListener to this Radio Receiver's listener list.
+        listener -- FreqListener"""
+  
+        #TODO: check for duplicate ids when adding
+      
+        self._receiver_list.append(receiver)
 
+    
