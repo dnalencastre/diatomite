@@ -83,6 +83,9 @@ class FreqListener:
     # modulation
     _modulation = ''
     
+    # frequency offset from the radio receiver
+    _frequency_offset = 0
+    
     def __init__(self, listener_id):
         """init the FreqListener
         listener_id -- the frequency listener id. 
@@ -134,6 +137,21 @@ class FreqListener:
             msg = 'Frequency set to {i}'.format(i=frequency)
             log.debug(msg)
 
+    def set_frequency_offset(self, receiver_center_frequency):
+        """Set the listener's offset frequency from the receiver's center frequency
+        receiver_center_frequency -- the receiver's center frequency in Hz"""
+
+        # calculate offset
+        if self._frequency < receiver_center_frequency:
+            self._frequency_offset = (receiver_center_frequency - self._frequency) * -1
+        elif self._frequency > receiver_center_frequency:
+            self._frequency_offset = receiver_center_frequency - self._frequency
+        else:
+            self._frequency_offset = 0
+            
+        # TODO: may need to notify working parts of the receiver
+    
+
     def set_bandwidth(self, bandwidth):
         """Sets the bandwidth for the listener.
         bandwidth -- the bandwidth in Hz (integer)"""
@@ -171,6 +189,11 @@ class FreqListener:
     def get_id(self):
         """Returns the frequency listener id."""
         return self._id
+    
+    def get_frequency_offset(self):
+        """Returns the listener's frequency offset from the radio receiver's
+        center frequency in hz."""
+        return self._frequency_offset
     
     def get_frequency(self):
         """Returns the frequency listener frequency in Hz."""
@@ -319,7 +342,10 @@ class RadioReceiver(object):
                       mf=self._cap_freq_min)
             log.error(msg)
             raise RadioReceiverFrequencyOutOfBounds, msg
-           
+        
+        # update the listener's offset
+        listener.set_frequency_offset(self._center_freq)
+        
         self._listener_list.append(listener)
         msg = 'FreqListener {i} added to list'.format(i=listener)
         log.debug(msg)
@@ -442,7 +468,7 @@ class DiatomiteProbe:
         #TODO: check for duplicate ids when adding
       
         self._receiver_list.append(receiver)
-        msg = 'RadioReceiver {i} added to list'.format(i=receiver)
+        msg = "RadioReceiver {i} added to probe's receiver list".format(i=receiver)
         log.debug(msg)
 
     

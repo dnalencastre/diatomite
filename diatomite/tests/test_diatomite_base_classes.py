@@ -320,6 +320,39 @@ class testFreqListener:
         else:
             assert False, 'Frequency accepted non integer number.'     
 
+    def test_frequency_offset(self):
+        """Test setting the frequency offset."""
+ 
+        id_to_set = 'test_frequency_offset'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        listener_freq = 200000
+        receiver_freq = 600000
+        
+        # set the listener frequency
+        freq_listener.set_frequency(listener_freq)
+        
+        # set the offset
+        freq_listener.set_frequency_offset(receiver_freq)
+        
+        # calculate offset
+        if listener_freq < receiver_freq:
+            offset = (receiver_freq - listener_freq) * -1
+        elif listener_freq > receiver_freq:
+            offset = receiver_freq - listener_freq
+        else:
+            offset = 0
+
+        returned_offset = freq_listener.get_frequency_offset()
+        
+        if returned_offset == offset:
+            pass
+        else:
+            msg = ('Frequency offset not correct . Should be {o}, but got'
+                   ' {ro}').format(o=offset, ro=returned_offset)
+            assert False, msg
+        
+
     def test_set_and_get_bandwidth(self):
         """Test setting and retrieving bandwidth."""
         bandwidth_to_set = 123
