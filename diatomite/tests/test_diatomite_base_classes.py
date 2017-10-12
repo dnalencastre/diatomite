@@ -40,7 +40,8 @@ class TestRadioSourceList(object):
     def test_append_with_RadioSource_sucess(self):
         """adding an object of type RadioSource is successful."""
 
-        radio_source = diatomite_base_classes.RadioSource('test_append_with_RadioSource_sucess')
+        rs_id = 'test_append_with_RadioSource_sucess'
+        radio_source = diatomite_base_classes.RadioSource(rs_id)
 
         radio_source_list = diatomite_base_classes.RadioSourceList()
 
@@ -139,7 +140,8 @@ class TestRadioSpectrum(object):
 class TestFreqListenerList(object):
     """Test FreqListenerList."""
 
-    _freq_listener = diatomite_base_classes.FreqListener('testFreqListenerList')
+    fl_id = 'testFreqListenerList'
+    _freq_listener = diatomite_base_classes.FreqListener(fl_id)
     _freq_listener_list = diatomite_base_classes.FreqListenerList()
 
     def test_append_with_non_FreqListener_fail(self):
@@ -700,7 +702,8 @@ class TestRadioSource(object):
 
 class TestRTL2838R820T2RadioSource(object):
     """Test RTL2838R820T2RadioSource class"""
-    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRTL2838R820T2RadioSource')
+    rs_id = 'testRTL2838R820T2RadioSource'
+    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
 
 #     def test_add_frequency_listener2(self):
 #         """Test adding a frequency listener to a RadioSourceaa object."""
@@ -727,7 +730,8 @@ class TestDiatomiteProbe(object):
         """Test adding a RadioSource to the DiatomiteProbe's
         RadioSourceList."""
 
-        r_receiver = diatomite_base_classes.RadioSource('test_add_radio_source')
+        rs_id = 'test_add_radio_source'
+        r_receiver = diatomite_base_classes.RadioSource(rs_id)
 
         self._diatomite_probe.add_radio_source(r_receiver)
 

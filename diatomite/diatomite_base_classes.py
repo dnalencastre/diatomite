@@ -121,7 +121,11 @@ class FreqListener(object):
         self._decimation = 1
         self._samp_rate = 500000
         self._transition_bw = 2000
-        self._filter_taps = grfilter.firdes.low_pass(1, self._samp_rate, self._samp_rate/(2*self._decimation), self._transition_bw)
+        self._filter_taps = grfilter.firdes.low_pass(1,
+                                                     self._samp_rate,
+                                                     (self._samp_rate
+                                                      / (2*self._decimation)),
+                                                     self._transition_bw)
         self._radio_source_bw = 0
 
     def set_id(self, listener_id):
@@ -135,7 +139,8 @@ class FreqListener(object):
             msg = 'Frequency id is empty'
             log.error(msg)
             raise FreqListenerBadIdError(msg)
-        if all(character in ascii_letters+digits+'_'+'-' for character in listener_id):
+        if all(character in ascii_letters+digits+'_'+'-'
+               for character in listener_id):
             self._id = listener_id.lower()
             msg = 'id set to {i}'.format(i=listener_id.lower())
             log.debug(msg)
@@ -176,9 +181,11 @@ class FreqListener(object):
 
         # calculate offset
         if self._frequency < radio_source_center_frequency:
-            self._frequency_offset = (radio_source_center_frequency - self._frequency) * -1
+            self._frequency_offset = (radio_source_center_frequency
+                                      - self._frequency) * -1
         elif self._frequency > radio_source_center_frequency:
-            self._frequency_offset = radio_source_center_frequency - self._frequency
+            self._frequency_offset = (radio_source_center_frequency
+                                      - self._frequency)
         else:
             self._frequency_offset = 0
 
@@ -261,7 +268,11 @@ class FreqListener(object):
 
     def config_frequency_translation(self):
         """Configure the frequency translation filter."""
-        self._freq_translation_filter = grfilter.freq_xlating_fir_filter_ccc(self._decimation, (self._filter_taps), self.get_frequency_offset(), self.get_radio_source_bw())
+        self._freq_translation_filter = (
+            grfilter.freq_xlating_fir_filter_ccc(self._decimation,
+                                                 (self._filter_taps),
+                                                 self.get_frequency_offset(),
+                                                 self.get_radio_source_bw()))
 
 
 class FreqListenerList(list):
@@ -345,7 +356,8 @@ class RadioSource(object):
         self._cap_freq_min = radio_spectrum.get_lower_frequency()
         self._cap_freq_max = radio_spectrum.get_upper_frequency()
         # set center frequency halfway between min and max
-        self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
+        self._center_freq = self._cap_freq_max - ((self._cap_freq_max
+                                                   - self._cap_freq_min) / 2)
         self.set_id(radio_source_id)
 
         self._radio_state = RadioReceiverSate.PRE_INIT
@@ -463,7 +475,8 @@ class RTL2838R820T2RadioSource(RadioSource):
         self._cap_bw = 2400000
         self._cap_freq_min = 25000
         self._cap_freq_max = 1750000000
-        self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
+        self._center_freq = self._cap_freq_max - ((self._cap_freq_max
+                                                   - self._cap_freq_min) / 2)
         self.set_id(radio_source_id)
 
         self._freq_corr = 0
