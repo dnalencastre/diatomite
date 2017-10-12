@@ -597,7 +597,7 @@ class testRadioReceiver(object):
 
 class testRTL2838R820T2RadioReceiver(object):
     """Test RTL2838R820T2RadioReceiver class"""
-    _radio_receiver = diatomite_base_classes.RTL2838R820T2RadioReceiver()
+    _radio_receiver = diatomite_base_classes.RTL2838R820T2RadioReceiver('testRTL2838R820T2RadioReceiver')
 
 #     def test_add_frequency_listener2(self):
 #         """Test adding a frequency listener to a RadioReceiveraa object."""

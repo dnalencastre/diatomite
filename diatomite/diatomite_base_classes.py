@@ -349,13 +349,20 @@ class RTL2838R820T2RadioReceiver(RadioReceiver):
     """Defines a radio receiver hardware with  RTL2838 receiver
      and a R820T2 tuner."""
     
-    def __init__(self):
+    def __init__(self, receiver_id):
         self._type = 'RTL2838_R820T2'
         self._cap_bw = 2400000
         self._cap_freq_min = 25000
-        self._cap_freq_max = 1750000000      
-        self._center_freq = self._cap_freq_min
-
+        self._cap_freq_max = 1750000000
+        self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
+        self.set_id(receiver_id)
+        msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
+               ' cap_freq_max:{cfmax}, center_freq:{cf},'
+               ' id:{id}').format(t=self._type, cb=self._cap_bw, 
+                                  cfmin=self._cap_freq_min, 
+                                  cfmax=self._cap_freq_max, 
+                                  cf=self._center_freq, id=receiver_id)
+        log.debug(msg)
 
 class RadioReceiverList(list):
     """Define a list of RadioReceiver objects."""
