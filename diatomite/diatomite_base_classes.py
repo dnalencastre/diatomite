@@ -19,6 +19,7 @@
                        Version 3, 19 November 2007
 """
 
+import logging as log
 from string import ascii_letters, digits
 
 class FreqListenerBadIdError(Exception):
@@ -99,11 +100,15 @@ class FreqListener:
         
         if listener_id == '':
             msg = 'Frequency id is empty'
+            log.error(msg)
             raise FreqListenerBadIdError, msg
         if all(character in ascii_letters+digits+'_'+'-' for character in listener_id):
             self._id = listener_id.lower()
+            msg = 'id set to {i}'.format(i=listener_id.lower())
+            log.debug(msg)
         else:
             msg = 'Frequency id contains can only contain AZaz09-_'
+            log.error(msg)
             raise FreqListenerBadIdError, msg
         
     def set_frequency(self, frequency):
@@ -116,23 +121,34 @@ class FreqListener:
         rs_upper_freq = rs.get_upper_frequency()
         
         if not float(frequency).is_integer():
-            raise ValueError,('Frequency is not a whole number')
+            msg = 'Frequency is not a whole number'
+            log.error(msg)
+            raise ValueError, msg
         elif frequency < rs_lower_freq or frequency > rs_upper_freq:
             msg = ('Frequency must be above {fl} hz '
                    'and below {fu} hz').format(fl=rs_lower_freq, fu=rs_upper_freq)
+            log.error(msg)
             raise ValueError, msg
         else:
             self._frequency = int(frequency)
+            msg = 'Frequency set to {i}'.format(i=frequency)
+            log.debug(msg)
 
     def set_bandwidth(self, bandwidth):
         """Sets the bandwidth for the listener.
         bandwidth -- the bandwidth in Hz (integer)"""
         if not float(bandwidth).is_integer():
-            raise ValueError,('Bandwidth is not a whole number')
+            msg = 'Bandwidth is not a whole number'
+            log.error(msg)
+            raise ValueError, msg
         elif bandwidth < 1:
-            raise ValueError,('Bandwidth must be ate least 1 hz')
+            msg = 'Bandwidth must be ate least 1 hz'
+            log.error(msg)
+            raise ValueError, msg
         else:
             self._bandwidth = int(bandwidth)       
+            msg = 'Bandwidth set to {i}'.format(i=bandwidth)
+            log.debug(msg)
         
     def set_modulation(self, modulation):
         """Sets the modulation for the listener.
@@ -144,9 +160,12 @@ class FreqListener:
         
         if modulation in acceptable_modulations:
             self._modulation = modulation
+            msg = 'Modulation set to {i}'.format(i=modulation)
+            log.debug(msg)
         else:
             msg = ('modulation must be one of {m}').format(
                 m=' '.join(acceptable_modulations))
+            log.error(msg)
             raise FreqListenerInvalidModulation,msg
                 
     def get_id(self):
@@ -190,17 +209,22 @@ class FreqListenerList(list):
 
         # Checking of type must occur before checking of id
         if not isinstance(listener, FreqListener):
-            raise TypeError, 'item is not of type FreqListener'
+            msg = 'item is not of type FreqListener'
+            log.error(msg)
+            raise TypeError, msg
                
         # obtain the listener id
         id_to_add = listener.get_id()
     
         if id_to_add in current_id_list:
             msg = "Frequency Listener's id is not unique"
+            log.error(msg)
             raise FreqListenerListIdNotUniqueError, msg
 
         super(FreqListenerList, self).append(listener)
-        
+        msg = 'FreqListener {i} added to list'.format(i=listener)
+        log.debug(msg)
+           
     def get_listener_id_list(self):
         """Obtain list of ids for all the members of the list"""
         res = []
@@ -208,6 +232,9 @@ class FreqListenerList(list):
         for listener in self:
             fid = listener.get_id()
             res.append(fid)
+
+        msg = 'Listener_id_list:{i}'.format(i=res)
+        log.debug(msg)
         
         return res
 
@@ -240,9 +267,17 @@ class RadioReceiver(object):
         self._type = 'base_receiver'
         self._cap_bw = 1000
         self._cap_freq_min = rs.get_lower_frequency()
-        self._cap_freq_max = rs.get_upper_frequency()  
-        self._center_freq = self._cap_freq_min
+        self._cap_freq_max = rs.get_upper_frequency()
+        # set center frequency halfway between min and max
+        self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
         self.set_id(receiver_id)
+        msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
+               ' cap_freq_max:{cfmax}, center_freq:{cf},'
+               ' id:{id}').format(t=self._type, cb=self._cap_bw, 
+                                  cfmin=self._cap_freq_min, 
+                                  cfmax=self._cap_freq_max, 
+                                  cf=self._center_freq, id=receiver_id)
+        log.debug(msg)
 
     def set_id(self, receiver_id):
         """Sets the radio receiver's  id.
@@ -253,11 +288,16 @@ class RadioReceiver(object):
 
         if receiver_id == '':
             msg = 'Receiver id is empty'
+            log.error(msg)
             raise RadioReceiverBadIdError, msg
-        if all(character in ascii_letters+digits+'_'+'-' for character in receiver_id):
+        if all(character in ascii_letters+digits+'_'+'-' 
+               for character in receiver_id):
             self._id = receiver_id.lower()
+            msg = 'id set to {i}'.format(i=receiver_id.lower())
+            log.debug(msg)
         else:
-            msg = 'Frequency id contains can only contain AZaz09-_'
+            msg = 'Frequency id contains contains unacceptable characters'
+            log.error(msg)
             raise RadioReceiverBadIdError, msg
 
     def add_frequency_listener(self, listener):
@@ -269,16 +309,20 @@ class RadioReceiver(object):
                    "receiver's maximum frequency ({mf})").format(
                        lf=listener.get_upper_frequency(),
                        mf=self._cap_freq_max)
+            log.error(msg)
             raise RadioReceiverFrequencyOutOfBounds, msg
             
         if listener.get_lower_frequency() < self._cap_freq_min:
             msg = ("The listener's lower frequency ({lf}) is below the "
                   "receiver's minimum frequency ({mf})").format(
                       lf=listener.get_upper_frequency(),
-                      mf=self._cap_freq_min) 
+                      mf=self._cap_freq_min)
+            log.error(msg)
             raise RadioReceiverFrequencyOutOfBounds, msg
            
         self._listener_list.append(listener)
+        msg = 'FreqListener {i} added to list'.format(i=listener)
+        log.debug(msg)
 
     def get_id(self):
         """Returns the receiver's id."""
@@ -324,16 +368,21 @@ class RadioReceiverList(list):
         current_id_list = self.get_receiver_id_list()
         
         if not isinstance(receiver, RadioReceiver):
-            raise TypeError, 'item is not of type RadioReceiver'
+            msg = 'item is not of type RadioReceiver'
+            log.error(msg)
+            raise TypeError, msg
 
         # obtain the listener id
         id_to_add = receiver.get_id()
      
         if id_to_add in current_id_list:
             msg = "Radio Receiver's id is not unique"
+            log.error(msg)
             raise RadioReceiverListIdNotUniqueError, msg
               
         super(RadioReceiverList, self).append(receiver)
+        msg = 'RadioReceiver {i} added to list'.format(i=receiver)
+        log.debug(msg)
 
     def get_receiver_id_list(self):
         """Obtain list of ids for all the members of the list"""
@@ -386,5 +435,7 @@ class DiatomiteProbe:
         #TODO: check for duplicate ids when adding
       
         self._receiver_list.append(receiver)
+        msg = 'RadioReceiver {i} added to list'.format(i=receiver)
+        log.debug(msg)
 
     
