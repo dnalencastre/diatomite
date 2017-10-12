@@ -30,17 +30,17 @@ class FreqListenerInvalidModulation(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
 
-class RadioReceiverFrequencyOutOfBounds(Exception):
-    """Raised when a RadioReceiver is given a FreqListener that has frequency and
-    bandwidth that don't fit within the receiver's frequency abilites."""
+class RadioSourceFrequencyOutOfBounds(Exception):
+    """Raised when a RadioSource is given a FreqListener that has frequency and
+    bandwidth that don't fit within the radio source's frequency abilites."""
     pass
 
-class RadioReceiverBadIdError(Exception):
+class RadioSourceBadIdError(Exception):
     """Raised when a FreqListener is passed an id with unacceptable characters."""
     pass
 
-class RadioReceiverListIdNotUniqueError(Exception):
-    """Raised when a RadioReceiver with an already occurring id is added to a
+class RadioSourceListIdNotUniqueError(Exception):
+    """Raised when a RadioSource with an already occurring id is added to a
     RadioRecieverList."""
     pass
 
@@ -83,7 +83,7 @@ class FreqListener:
     # modulation
     _modulation = ''
     
-    # frequency offset from the radio receiver
+    # frequency offset from the radio source
     _frequency_offset = 0
     
     def __init__(self, listener_id):
@@ -137,19 +137,19 @@ class FreqListener:
             msg = 'Frequency set to {i}'.format(i=frequency)
             log.debug(msg)
 
-    def set_frequency_offset(self, receiver_center_frequency):
-        """Set the listener's offset frequency from the receiver's center frequency
-        receiver_center_frequency -- the receiver's center frequency in Hz"""
+    def set_frequency_offset(self, radio_source_center_frequency):
+        """Set the listener's offset frequency from the radio source's center frequency
+        radio_source_center_frequency -- the radio source's center frequency in Hz"""
 
         # calculate offset
-        if self._frequency < receiver_center_frequency:
-            self._frequency_offset = (receiver_center_frequency - self._frequency) * -1
-        elif self._frequency > receiver_center_frequency:
-            self._frequency_offset = receiver_center_frequency - self._frequency
+        if self._frequency < radio_source_center_frequency:
+            self._frequency_offset = (radio_source_center_frequency - self._frequency) * -1
+        elif self._frequency > radio_source_center_frequency:
+            self._frequency_offset = radio_source_center_frequency - self._frequency
         else:
             self._frequency_offset = 0
             
-        # TODO: may need to notify working parts of the receiver
+        # TODO: may need to notify working parts of the radio source
     
 
     def set_bandwidth(self, bandwidth):
@@ -191,7 +191,7 @@ class FreqListener:
         return self._id
     
     def get_frequency_offset(self):
-        """Returns the listener's frequency offset from the radio receiver's
+        """Returns the listener's frequency offset from the radio source's
         center frequency in hz."""
         return self._frequency_offset
     
@@ -261,12 +261,12 @@ class FreqListenerList(list):
         
         return res
 
-class RadioReceiver(object):
-    """Define a radio receiver.
+class RadioSource(object):
+    """Define a radio source.
     This usually relates to the radio hardware
     """
     
-    # Id of the receiver
+    # Id of the radio source
     _id = ''
     
     # list of frequency listeners
@@ -274,74 +274,74 @@ class RadioReceiver(object):
 
     _type = ''
     
-    # define the bandwidth capability of the receiver, in hz
+    # define the bandwidth capability of the radio source, in hz
     _cap_bw = 0
     
     # define minimum and maximum frequencies that are
-    # tunable by the receiver, in hz
+    # tunable by the radio source, in hz
     _cap_freq_min = 0
     _cap_freq_max = 0
 
     # define the currently tuned frequency
     _center_freq = 0
     
-    def __init__(self, receiver_id):
+    def __init__(self, radio_source_id):
         rs = RadioSpectrum()
-        self._type = 'base_receiver'
+        self._type = 'base_radio_source'
         self._cap_bw = 1000
         self._cap_freq_min = rs.get_lower_frequency()
         self._cap_freq_max = rs.get_upper_frequency()
         # set center frequency halfway between min and max
         self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
-        self.set_id(receiver_id)
+        self.set_id(radio_source_id)
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw, 
                                   cfmin=self._cap_freq_min, 
                                   cfmax=self._cap_freq_max, 
-                                  cf=self._center_freq, id=receiver_id)
+                                  cf=self._center_freq, id=radio_source_id)
         log.debug(msg)
 
-    def set_id(self, receiver_id):
-        """Sets the radio receiver's  id.
+    def set_id(self, radio_source_id):
+        """Sets the radio source's  id.
         Converts alphabetic characters to lower case.
-        receiver_id -- the frequency listener id. 
+        radio_source_id -- the frequency listener id. 
                         Acceptable characters: ASCII characters, numbers, 
                         underscore, dash."""
 
-        if receiver_id == '':
-            msg = 'Receiver id is empty'
+        if radio_source_id == '':
+            msg = 'Radio source id is empty'
             log.error(msg)
-            raise RadioReceiverBadIdError, msg
+            raise RadioSourceBadIdError, msg
         if all(character in ascii_letters+digits+'_'+'-' 
-               for character in receiver_id):
-            self._id = receiver_id.lower()
-            msg = 'id set to {i}'.format(i=receiver_id.lower())
+               for character in radio_source_id):
+            self._id = radio_source_id.lower()
+            msg = 'id set to {i}'.format(i=radio_source_id.lower())
             log.debug(msg)
         else:
             msg = 'Frequency id contains contains unacceptable characters'
             log.error(msg)
-            raise RadioReceiverBadIdError, msg
+            raise RadioSourceBadIdError, msg
 
     def add_frequency_listener(self, listener):
-        """Add a FreqListener to this Radio Receiver's listener list.
+        """Add a FreqListener to this Radio Source's listener list.
         listener -- FreqListener"""
  
         if listener.get_upper_frequency() > self._cap_freq_max:
             msg = ("The listener's upper frequency ({lf}) is above the "
-                   "receiver's maximum frequency ({mf})").format(
+                   "radio source's maximum frequency ({mf})").format(
                        lf=listener.get_upper_frequency(),
                        mf=self._cap_freq_max)
             log.error(msg)
-            raise RadioReceiverFrequencyOutOfBounds, msg
+            raise RadioSourceFrequencyOutOfBounds, msg
             
         if listener.get_lower_frequency() < self._cap_freq_min:
             msg = ("The listener's lower frequency ({lf}) is below the "
-                  "receiver's minimum frequency ({mf})").format(
+                  "radio source's minimum frequency ({mf})").format(
                       lf=listener.get_upper_frequency(),
                       mf=self._cap_freq_min)
             log.error(msg)
-            raise RadioReceiverFrequencyOutOfBounds, msg
+            raise RadioSourceFrequencyOutOfBounds, msg
         
         # update the listener's offset
         listener.set_frequency_offset(self._center_freq)
@@ -351,78 +351,95 @@ class RadioReceiver(object):
         log.debug(msg)
 
     def get_id(self):
-        """Returns the receiver's id."""
+        """Returns the radio source's id."""
         return self._id
 
     def get_upper_frequency(self):
-        """Return the upper frequency on this receiver."""
+        """Return the upper frequency on this radio source."""
         return self._cap_freq_max
     
     def get_lower_frequency(self):
-        """Return the lower frequency on this receiver."""
+        """Return the lower frequency on this radio source."""
         return self._cap_freq_min
     
     def get_bandwidth_capability(self):
-        """Return the bandwidth capability for this receiver."""
+        """Return the bandwidth capability for this radio source."""
         return self._cap_bw
     
     def get_type(self):
-        """Return the type of this receiver."""
+        """Return the type of this radio source."""
         return self._type
 
 
-class RTL2838R820T2RadioReceiver(RadioReceiver):
-    """Defines a radio receiver hardware with  RTL2838 receiver
+class RTL2838R820T2RadioSource(RadioSource):
+    """Defines a radio source hardware with  RTL2838 receiver
      and a R820T2 tuner."""
     
-    def __init__(self, receiver_id):
+    def __init__(self, radio_source_id):
         self._type = 'RTL2838_R820T2'
         self._cap_bw = 2400000
         self._cap_freq_min = 25000
         self._cap_freq_max = 1750000000
         self._center_freq = self._cap_freq_max - ((self._cap_freq_max - self._cap_freq_min) / 2)
-        self.set_id(receiver_id)
+        self.set_id(radio_source_id)
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw, 
                                   cfmin=self._cap_freq_min, 
                                   cfmax=self._cap_freq_max, 
-                                  cf=self._center_freq, id=receiver_id)
+                                  cf=self._center_freq, id=radio_source_id)
         log.debug(msg)
 
-class RadioReceiverList(list):
-    """Define a list of RadioReceiver objects."""
 
-    def append(self, receiver):
-        """add a receiver to the list
-        receiver - a RadioReceiver to add to the list.
+#TODO: configure radio radio_source
+"""
+        self.osmosdr_source_0 = osmosdr.source( args="numchan=" + str(1) + " " + '' )
+        self.osmosdr_source_0.set_sample_rate(osmo_samp_rate)
+        self.osmosdr_source_0.set_center_freq(osmo_freq, 0)
+        self.osmosdr_source_0.set_freq_corr(0, 0)
+        self.osmosdr_source_0.set_dc_offset_mode(0, 0)
+        self.osmosdr_source_0.set_iq_balance_mode(0, 0)
+        self.osmosdr_source_0.set_gain_mode(False, 0)
+        self.osmosdr_source_0.set_gain(10, 0)
+        self.osmosdr_source_0.set_if_gain(af_gain, 0)
+        self.osmosdr_source_0.set_bb_gain(20, 0)
+        self.osmosdr_source_0.set_antenna('', 0)
+        self.osmosdr_source_0.set_bandwidth(0, 0)
+"""
+
+class RadioSourceList(list):
+    """Define a list of RadioSource objects."""
+
+    def append(self, radio_source):
+        """add a radio source to the list
+        radio_source - a RadioSource to add to the list.
         append will not allow duplicate ids to be added."""
              
-        current_id_list = self.get_receiver_id_list()
+        current_id_list = self.get_radio_source_id_list()
         
-        if not isinstance(receiver, RadioReceiver):
-            msg = 'item is not of type RadioReceiver'
+        if not isinstance(radio_source, RadioSource):
+            msg = 'item is not of type RadioSource'
             log.error(msg)
             raise TypeError, msg
 
         # obtain the listener id
-        id_to_add = receiver.get_id()
+        id_to_add = radio_source.get_id()
      
         if id_to_add in current_id_list:
-            msg = "Radio Receiver's id is not unique"
+            msg = "Radio source's id is not unique"
             log.error(msg)
-            raise RadioReceiverListIdNotUniqueError, msg
+            raise RadioSourceListIdNotUniqueError, msg
               
-        super(RadioReceiverList, self).append(receiver)
-        msg = 'RadioReceiver {i} added to list'.format(i=receiver)
+        super(RadioSourceList, self).append(radio_source)
+        msg = 'RadioSource {i} added to list'.format(i=radio_source)
         log.debug(msg)
 
-    def get_receiver_id_list(self):
+    def get_radio_source_id_list(self):
         """Obtain list of ids for all the members of the list"""
         res = []
  
-        for receiver in self:
-            fid = receiver.get_id()
+        for radio_source in self:
+            fid = radio_source.get_id()
             res.append(fid)
          
         return res
@@ -455,20 +472,20 @@ class DiatomiteSite:
 class DiatomiteProbe:
     """Define a diatomite probe.
     A diatomite probe pertains to a DiatomiteSite.
-    A diatomite probe has one or more radio receivers
+    A diatomite probe has one or more radio sources
     """
      
     _site = DiatomiteSite()
-    _receiver_list=RadioReceiverList()
+    _radio_source_list=RadioSourceList()
     
-    def add_radio_receiver(self, receiver):
-        """Add a FreqListener to this Radio Receiver's listener list.
+    def add_radio_source(self, radio_source):
+        """Add a FreqListener to this Radio source's listener list.
         listener -- FreqListener"""
   
         #TODO: check for duplicate ids when adding
       
-        self._receiver_list.append(receiver)
-        msg = "RadioReceiver {i} added to probe's receiver list".format(i=receiver)
+        self._radio_source_list.append(radio_source)
+        msg = "RadioSource {i} added to probe's radio source list".format(i=radio_source)
         log.debug(msg)
 
-    
+    #TODO: add method to start radio sources

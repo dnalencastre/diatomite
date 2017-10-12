@@ -21,76 +21,76 @@
 
 import diatomite.diatomite_base_classes as diatomite_base_classes
 
-class testRadioReceiverList(object):
+class testRadioSourceList(object):
     
-    def test_append_with_non_RadioReceiver_fail(self):
-        """adding an object not of type RadioReceiver should raise a TypeError."""
+    def test_append_with_non_RadioSource_fail(self):
+        """adding an object not of type RadioSource should raise a TypeError."""
         
-        non_radio_receiver = 'test'
+        non_radio_source = 'test'
 
-        radio_receiver_list = diatomite_base_classes.RadioReceiverList()
+        radio_source_list = diatomite_base_classes.RadioSourceList()
         try:
-            radio_receiver_list.append(non_radio_receiver)
+            radio_source_list.append(non_radio_source)
         except TypeError:
             pass
 
-    def test_append_with_RadioReceiver_sucess(self):
-        """adding an object of type RadioReceiver is successful."""
+    def test_append_with_RadioSource_sucess(self):
+        """adding an object of type RadioSource is successful."""
         
-        radio_receiver = diatomite_base_classes.RadioReceiver('test_append_with_RadioReceiver_sucess')
+        radio_source = diatomite_base_classes.RadioSource('test_append_with_RadioSource_sucess')
          
-        radio_receiver_list = diatomite_base_classes.RadioReceiverList()
+        radio_source_list = diatomite_base_classes.RadioSourceList()
          
-        radio_receiver_list.append(radio_receiver)
+        radio_source_list.append(radio_source)
         
     def test_get_receiover_id_list(self):
         
         # define an empty FreqListenerList
-        radio_receiver_list = diatomite_base_classes.RadioReceiverList()
+        radio_source_list = diatomite_base_classes.RadioSourceList()
         
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_b'
-        radio_receiver_a = diatomite_base_classes.RadioReceiver(id_to_set_a)
-        radio_receiver_b = diatomite_base_classes.RadioReceiver(id_to_set_b)
-        radio_receiver_list.append(radio_receiver_a)
-        radio_receiver_list.append(radio_receiver_b)
+        radio_source_a = diatomite_base_classes.RadioSource(id_to_set_a)
+        radio_source_b = diatomite_base_classes.RadioSource(id_to_set_b)
+        radio_source_list.append(radio_source_a)
+        radio_source_list.append(radio_source_b)
         control_list = []
         control_list.append(id_to_set_a.lower())
         control_list.append(id_to_set_b.lower())
 
-        freq_listener_id_list = radio_receiver_list.get_receiver_id_list()
+        freq_listener_id_list = radio_source_list.get_radio_source_id_list()
 
         if not isinstance(freq_listener_id_list, list):
-            msg = ('RadioReceiver.get_listener_id_list did not return a list')
+            msg = ('RadioSource.get_listener_id_list did not return a list')
             assert False, msg
             
         if control_list != freq_listener_id_list:
-            msg = ('RadioReceiver.get_listener_id_list did not return the expected list contents')
+            msg = ('RadioSource.get_listener_id_list did not return the expected list contents')
             assert False, msg
 
     def test_append_repeating_id_fail(self):
         """Adding an already existing id should fail."""
         # define an empty FreqListenerList
-        radio_receiver_list = diatomite_base_classes.RadioReceiverList()
+        radio_source_list = diatomite_base_classes.RadioSourceList()
        
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_a'
-        radio_receiver_a = diatomite_base_classes.RadioReceiver(id_to_set_a)
-        radio_receiver_b = diatomite_base_classes.RadioReceiver(id_to_set_b)
-        radio_receiver_list.append(radio_receiver_a)
+        radio_source_a = diatomite_base_classes.RadioSource(id_to_set_a)
+        radio_source_b = diatomite_base_classes.RadioSource(id_to_set_b)
+        radio_source_list.append(radio_source_a)
         control_list = []
         
         control_list.append(id_to_set_a.lower())
         control_list.append(id_to_set_b.lower())
              
         try:
-            radio_receiver_list.append(radio_receiver_b)
-        except diatomite_base_classes.RadioReceiverListIdNotUniqueError:
+            radio_source_list.append(radio_source_b)
+        except diatomite_base_classes.RadioSourceListIdNotUniqueError:
             pass
         else:
-            msg = 'RadioReceiverList accepted an existing ID'
+            msg = 'RadioSourceList accepted an existing ID'
             assert False, msg
 
 class testRadioSpectrum(object):
@@ -327,19 +327,19 @@ class testFreqListener:
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
         
         listener_freq = 200000
-        receiver_freq = 600000
+        radio_source_freq = 600000
         
         # set the listener frequency
         freq_listener.set_frequency(listener_freq)
         
         # set the offset
-        freq_listener.set_frequency_offset(receiver_freq)
+        freq_listener.set_frequency_offset(radio_source_freq)
         
         # calculate offset
-        if listener_freq < receiver_freq:
-            offset = (receiver_freq - listener_freq) * -1
-        elif listener_freq > receiver_freq:
-            offset = receiver_freq - listener_freq
+        if listener_freq < radio_source_freq:
+            offset = (radio_source_freq - listener_freq) * -1
+        elif listener_freq > radio_source_freq:
+            offset = radio_source_freq - listener_freq
         else:
             offset = 0
 
@@ -449,40 +449,40 @@ class testFreqListener:
             assert False, 'Frequency listener not returning correct lower frequency.'
               
 
-class testRadioReceiver(object):
+class testRadioSource(object):
  
-    _radio_receiver = diatomite_base_classes.RadioReceiver('testRadioReceiver')
+    _radio_source = diatomite_base_classes.RadioSource('testRadioSource')
     _radio_spectrum = diatomite_base_classes.RadioSpectrum()
 
     def test_init_without_id(self):
         try:
-            diatomite_base_classes.RadioReceiver()
+            diatomite_base_classes.RadioSource()
         except TypeError:
             pass
         else:
-            msg = 'RadioReceiver accepted instanciation without id'
+            msg = 'RadioSource accepted instanciation without id'
             assert False,msg
 
     def test_set_empty_id(self):
         """Test setting a frequency ID containing unacceptable characters."""
         
         id_to_set = 'test_set_empty_id'
-        radio_receiver = diatomite_base_classes.RadioReceiver(id_to_set)
+        radio_source = diatomite_base_classes.RadioSource(id_to_set)
         id_to_set = ''
         try:
-            radio_receiver.set_id(id_to_set)
-        except diatomite_base_classes.RadioReceiverBadIdError:
+            radio_source.set_id(id_to_set)
+        except diatomite_base_classes.RadioSourceBadIdError:
             pass
         else:
-            assert False, 'RadioReceiver accepted an empty ID'
+            assert False, 'RadioSource accepted an empty ID'
 
     def test_set_and_get_id(self):
         """Test setting and retrieving receiver id, Checks that string is 
         stored as lower case."""
         id_to_set = 'test_id123-A'
-        self._radio_receiver.set_id(id_to_set)
+        self._radio_source.set_id(id_to_set)
         
-        id_from_rr = self._radio_receiver.get_id()
+        id_from_rr = self._radio_source.get_id()
         
         if not id_to_set.lower() == id_from_rr:
             assert False, 'Id that was set was not returned correctly'
@@ -492,80 +492,80 @@ class testRadioReceiver(object):
         
         id_to_set = 'test!@##$$%$%^'
         try:
-            self._radio_receiver.set_id(id_to_set)
-        except diatomite_base_classes.RadioReceiverBadIdError:
+            self._radio_source.set_id(id_to_set)
+        except diatomite_base_classes.RadioSourceBadIdError:
             pass
         else:
-            assert False, 'RadioReceiver accepted an ID with unacceptable characters'
+            assert False, 'RadioSource accepted an ID with unacceptable characters'
 
     def test_get_upper_frequency(self):
-        """Test retrieving the upper frequency of the RadioReceiver.
+        """Test retrieving the upper frequency of the RadioSource.
         Also check it is a whole number and larger than zero."""
           
-        upper_from_radio_receiver = self._radio_receiver.get_upper_frequency()
+        upper_from_radio_source = self._radio_source.get_upper_frequency()
         rs_upper_frequency = self._radio_spectrum.get_upper_frequency()
         
-        if not float(upper_from_radio_receiver).is_integer():
+        if not float(upper_from_radio_source).is_integer():
             msg = ('{o} not returning a valid upper frequency (number is not'
-                   ' whole).').format(o=type(self._radio_receiver).__name__)
+                   ' whole).').format(o=type(self._radio_source).__name__)
             assert False, msg
              
-        if not upper_from_radio_receiver <= rs_upper_frequency:
+        if not upper_from_radio_source <= rs_upper_frequency:
             msg = ('{o} not returning a valid upper frequency (number is above'
                    ' radio spectrum {urs}).').format(
-                       o=type(self._radio_receiver).__name__,
+                       o=type(self._radio_source).__name__,
                        urs=rs_upper_frequency)
             assert False, msg
            
     def test_get_lower_frequency(self):
-        """Test retrieving the lower frequency of the RadioReceiver.
+        """Test retrieving the lower frequency of the RadioSource.
           Also check it is a whole number and larger than zero."""
  
-        lower_from_radio_receiver = self._radio_receiver.get_lower_frequency()
+        lower_from_radio_source = self._radio_source.get_lower_frequency()
         rs_lower_frequency = self._radio_spectrum.get_lower_frequency()
          
-        if not float(lower_from_radio_receiver).is_integer():
+        if not float(lower_from_radio_source).is_integer():
             msg = ('{o} not returning a valid lower frequency (number is not'
-                   ' whole).').format(o=type(self._radio_receiver).__name__)
+                   ' whole).').format(o=type(self._radio_source).__name__)
             assert False, msg
              
-        if not lower_from_radio_receiver >= rs_lower_frequency:
+        if not lower_from_radio_source >= rs_lower_frequency:
             msg = ('{o} not returning a valid lower frequency (number is below'
                    ' radio spectrum {lrs}).').format(
-                       o=type(self._radio_receiver).__name__,
+                       o=type(self._radio_source).__name__,
                        lrs=rs_lower_frequency)
             assert False, msg
  
  
     def test_get_bandwidth_capability(self):
-        """Test retrieving the bandwidth capability of the RadioReceiver.
+        """Test retrieving the bandwidth capability of the RadioSource.
           Also check it is a whole number and larger than zero."""
        
-        bandwidth_capability_from_radio_receiver = self._radio_receiver.get_bandwidth_capability()
+        bandwidth_capability_from_radio_source = self._radio_source.get_bandwidth_capability()
          
-        if not float(bandwidth_capability_from_radio_receiver).is_integer():
+        if not float(bandwidth_capability_from_radio_source).is_integer():
             msg = ('{o} not returning a valid bandwidth capability (number is not'
-                   ' whole).').format(o=type(self._radio_receiver).__name__)
+                   ' whole).').format(o=type(self._radio_source).__name__)
             assert False, msg
              
-        if not bandwidth_capability_from_radio_receiver >= 1:
+        if not bandwidth_capability_from_radio_source >= 1:
             msg = ('{o} not returning a valid bandwidth capability (number is lower'
-                   ' than 1).').format(o=type(self._radio_receiver).__name__)
+                   ' than 1).').format(o=type(self._radio_source).__name__)
             assert False, msg
  
 
     def test_add_frequency_listener(self):
-        """Test adding a frequency listener to a RadioReceiver object."""
-#         rr = diatomite_base_classes.RadioReceiver()
+        """Test adding a frequency listener to a RadioSource object."""
+#         rr = diatomite_base_classes.RadioSource()
         # get the radio's frequency limits
-        upper_from_radio_receiver = self._radio_receiver.get_upper_frequency()
-        lower_from_radio_receiver = self._radio_receiver.get_lower_frequency()
+        upper_from_radio_source = self._radio_source.get_upper_frequency()
+        lower_from_radio_source = self._radio_source.get_lower_frequency()
 
         # calculate the bandwidth
-        bw = upper_from_radio_receiver - lower_from_radio_receiver
+        bw = upper_from_radio_source - lower_from_radio_source
          
         # define the center frequency midway from upper and lower
-        center_freq = (bw/2) + lower_from_radio_receiver
+        center_freq = (bw/2) + lower_from_radio_source
         frequency_to_set = center_freq
 
         # ensure the bandwidth fits the radio
@@ -576,18 +576,18 @@ class testRadioReceiver(object):
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
-        self._radio_receiver.add_frequency_listener(freq_listener)
+        self._radio_source.add_frequency_listener(freq_listener)
 
  
     def test_add_frequency_listener_with_lower_frequency(self):
-        """Test adding a frequency listener to a RadioReceiver object 
-        below the RadioReceivers minimum frequency."""
+        """Test adding a frequency listener to a RadioSource object 
+        below the RadioSources minimum frequency."""
  
-        radio_receiver = self._radio_receiver
+        radio_source = self._radio_source
  
-        lower_from_radio_receiver = radio_receiver.get_lower_frequency()
+        lower_from_radio_source = radio_source.get_lower_frequency()
  
-        frequency_to_set = lower_from_radio_receiver
+        frequency_to_set = lower_from_radio_source
         bandwidth_to_set = 1000
         id_to_set = 'test_add_frequency_listener_with_lower_frequency'
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
@@ -595,23 +595,23 @@ class testRadioReceiver(object):
         freq_listener.set_bandwidth(bandwidth_to_set)       
  
         try:
-            radio_receiver.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioReceiverFrequencyOutOfBounds:
+            radio_source.add_frequency_listener(freq_listener)
+        except diatomite_base_classes.RadioSourceFrequencyOutOfBounds:
             pass
         else:
             msg = ('{o} accepted a frequency below the minimum'
-                   ' frequency').format(o=type(radio_receiver).__name__)
+                   ' frequency').format(o=type(radio_source).__name__)
             assert False, msg
  
     def test_add_frequency_listener_with_higher_frequency(self):
-        """Test adding a frequency listener to a RadioReceiver object above 
-        the RadioReceivers maximum frequency."""
+        """Test adding a frequency listener to a RadioSource object above 
+        the RadioSources maximum frequency."""
  
-        radio_receiver = self._radio_receiver
+        radio_source = self._radio_source
  
-        upper_from_radio_receiver = radio_receiver.get_upper_frequency()
+        upper_from_radio_source = radio_source.get_upper_frequency()
          
-        frequency_to_set = upper_from_radio_receiver
+        frequency_to_set = upper_from_radio_source
         bandwidth_to_set = 1000
         id_to_set = 'test_add_frequency_listener_with_higher_frequency'
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
@@ -619,21 +619,21 @@ class testRadioReceiver(object):
         freq_listener.set_bandwidth(bandwidth_to_set)       
          
         try:
-            radio_receiver.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioReceiverFrequencyOutOfBounds:
+            radio_source.add_frequency_listener(freq_listener)
+        except diatomite_base_classes.RadioSourceFrequencyOutOfBounds:
             pass
         else:
             msg = ('{o} accepted a frequency above the maximum'
-                   ' frequency').format(o=type(radio_receiver).__name__)
+                   ' frequency').format(o=type(radio_source).__name__)
             assert False, msg
 
 
-class testRTL2838R820T2RadioReceiver(object):
-    """Test RTL2838R820T2RadioReceiver class"""
-    _radio_receiver = diatomite_base_classes.RTL2838R820T2RadioReceiver('testRTL2838R820T2RadioReceiver')
+class testRTL2838R820T2RadioSource(object):
+    """Test RTL2838R820T2RadioSource class"""
+    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRTL2838R820T2RadioSource')
 
 #     def test_add_frequency_listener2(self):
-#         """Test adding a frequency listener to a RadioReceiveraa object."""
+#         """Test adding a frequency listener to a RadioSourceaa object."""
 #         pass
 #         print 'XXXX'
         
@@ -642,20 +642,20 @@ class testDiatomiteProbe(object):
     
     _diatomite_probe = diatomite_base_classes.DiatomiteProbe() 
 
-    def test_add_radio_receiver(self):
-        """Test adding a RadioReceiver to the DiatomiteProbe's RadioReceiverList."""
+    def test_add_radio_source(self):
+        """Test adding a RadioSource to the DiatomiteProbe's RadioSourceList."""
         
-        r_receiver = diatomite_base_classes.RadioReceiver('test_add_radio_receiver')
+        r_receiver = diatomite_base_classes.RadioSource('test_add_radio_source')
         
-        self._diatomite_probe.add_radio_receiver(r_receiver)
+        self._diatomite_probe.add_radio_source(r_receiver)
         
-    def test_add_radio_receiver_wrong_type_fail(self):
-        """Test adding an invalid type to the DiatomiteProbe's RadioReceiverList."""
+    def test_add_radio_source_wrong_type_fail(self):
+        """Test adding an invalid type to the DiatomiteProbe's RadioSourceList."""
         
         r_receiver = ''
         
         try:
-            self._diatomite_probe.add_radio_receiver(r_receiver)
+            self._diatomite_probe.add_radio_source(r_receiver)
         except TypeError:
             pass
                
