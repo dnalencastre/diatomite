@@ -127,6 +127,7 @@ class FreqListener(object):
                                                       / (2*self._decimation)),
                                                      self._transition_bw)
         self._radio_source_bw = 0
+        self._radio_source_block = None
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -224,6 +225,20 @@ class FreqListener(object):
                 m=' '.join(acceptable_modulations))
             log.error(msg)
             raise FreqListenerInvalidModulation(msg)
+        
+    def set_source_block(self,source_block):
+        """Set the gnu radio source block.
+        source_block -- the gr source block of """
+        
+        if not type(source_block) == osmosdr.osmosdr_swig.source_sptr:
+            msg = 'Wrong type for radio source block.'
+            log.error(msg)
+            raise TypeError(msg)
+        else:
+            self._radio_source_block = source_block
+            msg = 'Radio Source block set.'
+            log.debug(msg)         
+        
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -273,6 +288,24 @@ class FreqListener(object):
                                                  (self._filter_taps),
                                                  self.get_frequency_offset(),
                                                  self.get_radio_source_bw()))
+
+    def connect_frequency_translator_to_source(self,source):
+        """Connect the frequency translation filter to the source.
+        source -- a gnu radio source block 
+        """
+ 
+        # TODO: RadioSource needs to pass the top_block to the FreqListner
+    
+        try:
+            self._radio_source_block.top_block.connect((self._radio_source_block, 0), 
+                                                       (self._freq_translation_filter, 0))
+        except Exception, exc:
+            msg = ('Failed connecting radio source to filter with'
+                   '  {m}').format(m=str(exc))
+            print msg
+            raise
+#         msg = 'Not yet done'
+#         raise Exception(msg)
 
 
 class FreqListenerList(list):
@@ -343,6 +376,8 @@ class RadioSource(object):
 
     # radio source arguments
     _source_args = ''
+    
+    _radio_state = None
 
     def __init__(self, radio_source_id):
         """Initialize the radio source object.
@@ -452,6 +487,15 @@ class RadioSource(object):
         """Return the center frequency for this source."""
         return self._center_freq
 
+    def get_source_block(self):
+        """Return the gnu radio source block"""
+        
+        if self._radio_state == RadioReceiverSate.OK:
+            return self._radio_source
+        else:
+            msg = 'Radio Source not started'
+            raise RadioSourceRadioFailureError(msg)
+        
     def start_frequency_listeners(self):
         """Start individual frequency listeners"""
 
@@ -489,6 +533,7 @@ class RTL2838R820T2RadioSource(RadioSource):
         self._bb_gain = 20
         self._antenna = ''
         self._bandwith = 0
+        self._radio_source = None
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
@@ -521,6 +566,7 @@ class RTL2838R820T2RadioSource(RadioSource):
             self._radio_source.set_bb_gain(self._bb_gain, 0)
             self._radio_source.set_antenna(self._antenna, 0)
             self._radio_source.set_bandwidth(self._bandwith, 0)
+            self._radio_state = RadioReceiverSate.OK
         else:
             self._radio_state = RadioReceiverSate.FAILED
             msg = 'Radio initialization failed'

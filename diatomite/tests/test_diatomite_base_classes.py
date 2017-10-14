@@ -20,7 +20,7 @@
 """
 
 import diatomite.diatomite_base_classes as diatomite_base_classes
-
+import osmosdr
 
 class TestRadioSourceList(object):
     """Test the RadioSourceList class"""
@@ -279,11 +279,11 @@ class TestFreqListener(object):
         id_to_set = 'test_set_and_get_radio_source_bw'
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
 
-        radio_source_to_set = 1000
+        radio_source_bw_to_set = 1000
 
-        freq_listener.set_radio_source_bw(radio_source_to_set)
+        freq_listener.set_radio_source_bw(radio_source_bw_to_set)
 
-        if radio_source_to_set != freq_listener.get_radio_source_bw():
+        if radio_source_bw_to_set != freq_listener.get_radio_source_bw():
             msg = ('Radio source bandwidth that was set was not'
                    ' returned correctly')
             assert False, msg
@@ -429,6 +429,26 @@ class TestFreqListener(object):
         if not modulation_to_set.lower() == modulation_from_fl:
             assert False, 'modulation that was set was not returned correctly'
 
+    def test_set_gr_radio_source(self):
+        """Test setting the gnu radio radio source."""
+        
+        id_to_set = 'test_set_gr_radio_source'
+        # use one of the derived Classes from RadioSource for which you have 
+        # hardware connected
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(id_to_set)
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        radio_source._radio_init()
+        radio_source_block = radio_source.get_source_block()
+        
+        try:
+            freq_listener.set_source_block(radio_source_block)
+        except Exception, exc:
+            msg = ('Failed radio init with {m} for'
+                   ' Class {c}').format(m=str(exc), c=type(radio_source))
+            assert False, msg
+
+
     def test_set_unacceptable_modulation(self):
         """Test setting an unacceptable modulation."""
         modulation_to_set = 'blaaah'
@@ -478,6 +498,37 @@ class TestFreqListener(object):
         if not lower_from_freq_listener == lower_freq:
             msg = 'Frequency listener not returning correct lower frequency.'
             assert False, msg
+
+    def test_connect_frequency_translator_to_source(self):
+        """Test connecting the frequency translation filter to a gnu radio 
+        source."""
+        
+        # setup a RadioSource
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        
+        # setup a FrequencyListener
+        id_to_set = 'test_connect_frequency_translator_to_source'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        # determine radio frequency to use on listener
+        # use the radio source center frequency as datum
+        frequency_to_set = radio_source.get_center_frequency() - 1000
+        freq_listener.set_frequency(frequency_to_set)
+        
+        # get the gnu radio source
+        source_block = radio_source.get_source_block()
+        
+        # configure the frequency translator
+        try:
+            freq_listener.config_frequency_translation(source_block)
+        except Exception, exc:
+            msg =('Failed to config_frequency_translation for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(self._radio_source))
+            assert False, msg
+        # connect the frequency translator to the source
+        msg = 'still to be finished'
+        assert False, msg
 
 
 class TestRadioSource(object):
@@ -618,6 +669,19 @@ class TestRadioSource(object):
             msg = ('Failed radio init with {m} for'
                    ' Class {c}').format(m=str(exc), c=type(self._radio_source))
             assert False, msg
+# 
+#     def test_get_source_block(self):
+#         """Test retrieving the gnu radio source."""
+# 
+#         self._radio_source._radio_init()
+#         try:
+#             source_block = self._radio_source.get_source_block()
+#         except Exception, excpt:
+#             msg = ('Failed getting radios source for Class {c},'
+#                    ' with {e}').format(c=type(self._radio_source), e=excpt)
+#             assert False, msg
+#         else:
+#             print 'type or rsource:{trs}'.format(trs=type(rsource))
 
     def test_add_frequency_listener(self):
         """Test adding a frequency listener to a RadioSource object."""
@@ -705,11 +769,6 @@ class TestRTL2838R820T2RadioSource(object):
     rs_id = 'testRTL2838R820T2RadioSource'
     _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
 
-#     def test_add_frequency_listener2(self):
-#         """Test adding a frequency listener to a RadioSourceaa object."""
-#         pass
-#         print 'XXXX'
-
     def test_radio_init(self):
         """Test the radio initialization"""
 
@@ -718,6 +777,22 @@ class TestRTL2838R820T2RadioSource(object):
         except diatomite_base_classes.RadioSourceRadioFailureError, excpt:
             msg = ('Failed radio init with {m} for Class'
                    ' {c}').format(m=str(excpt), c=type(self._radio_source))
+            assert False, msg
+
+    def test_get_source_block(self):
+        """Test retrieving the gnu radio source."""
+
+        self._radio_source._radio_init()
+        try:
+            source_block = self._radio_source.get_source_block()
+        except Exception, excpt:
+            msg = ('Failed getting radios source for Class {c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            assert False, msg
+
+        if not type(source_block) == osmosdr.osmosdr_swig.source_sptr:
+            msg = ('get_radio_source returned wrong type. Class being'
+                   ' tested:{c}').format(c=type(self._radio_source))
             assert False, msg
 
 
