@@ -23,6 +23,7 @@ import logging as log
 from string import ascii_letters, digits
 from gnuradio import gr
 from gnuradio import filter as grfilter
+from gnuradio.fft import logpwrfft
 import osmosdr
 
 
@@ -129,6 +130,14 @@ class FreqListener(object):
         self._radio_source_bw = 0
         self._radio_source_block = None
         self._gr_top_block = None
+
+        self._log_fft = None
+        self._fft_size = 1024
+        self._fft_ref_scale = 2
+        self._fft_frame_rate = 30
+        self._fft_avg_alpha = 1.0
+        self._fft_average = False
+
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -312,9 +321,38 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
                    ' {m}').format(m=str(exc))
-            print msg
+            log.debug(msg)
             raise
 
+    def _setup_rf_fft(self):
+        """Setup an fft to check the RF status."""
+        
+        # start the fft
+        try:
+            self._log_fft  = logpwrfft.logpwrfft_c(
+                sample_rate=self._samp_rate,
+                fft_size=self._fft_size,
+                ref_scale=self._fft_ref_scale,
+                frame_rate=self._fft_frame_rate,
+                avg_alpha=self._fft_avg_alpha,
+                average=self._fft_average
+            )
+        except Exception, exc:
+            msg = ('Failed setting up fft with'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise
+        
+        # connect the fft to the freq translation filter
+        try:
+            self._gr_top_block.connect(self._freq_translation_filter, 
+                                       self._log_fft)                 
+        except Exception, exc:
+            msg = ('Failed to connect the fft to freq translation, with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise
+        
     def start_listener(self):
         """Start the frequency listener."""
     
@@ -323,7 +361,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed configuring frequency translation with'
                    ' {m}').format(m=str(exc))
-            print msg
+            log.debug(msg)
             raise
         
         try:
@@ -331,11 +369,18 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting frequency translation to source'
                    'with {m}').format(m=str(exc))
-            print msg
+            log.debug(msg)
             raise            
         
         #TODO: add fft connection
-        
+        try:
+            self._setup_rf_fft()
+        except Exception, exc:
+            msg = ('Failed to setup RF FFT'
+                   'with {m}').format(m=str(exc))
+            log.debug(msg)
+            raise    
+
         #TODO: add the fft data retrieval
 
 class FreqListenerList(list):

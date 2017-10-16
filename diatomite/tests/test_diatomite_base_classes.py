@@ -565,7 +565,6 @@ class TestFreqListener(object):
         
         # configure the frequency translator
         try:
-        
             freq_listener._config_frequency_translation()
         except Exception, exc:
             msg =('Failed to configure frequency translator for'
@@ -581,6 +580,57 @@ class TestFreqListener(object):
                   ' Class {c}, with {m}').format(m=str(exc), 
                                                  c=type(radio_source))
             assert False, msg
+
+    def test_setup_rf_fft(self):
+        """Test setting up an fft"""
+        
+        # setup a RadioSource
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source._radio_init()
+        
+        # setup a FrequencyListener
+        id_to_set = 'test_setup_rf_fft'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        # determine radio frequency to use on listener
+        # use the radio source center frequency as datum
+        frequency_to_set = radio_source.get_center_frequency() - 1000
+        freq_listener.set_frequency(frequency_to_set)
+        
+        # get the gnu radio source
+        source_block = radio_source.get_source_block()
+        freq_listener.set_source_block(source_block)
+        
+        # get the gnu radio top block
+        gr_top_block = radio_source.get_gr_top_block()
+        freq_listener.set_gr_top_block(gr_top_block)
+        
+        # configure the frequency translator
+        try:
+        
+            freq_listener._config_frequency_translation()
+        except Exception, exc:
+            msg =('Failed to configure frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg
+                 
+        # connect the frequency translator to the source
+        try:
+            freq_listener._connect_frequency_translator_to_source()
+        except Exception, exc:
+            msg =('Failed to connect frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg      
+        
+        try:
+            freq_listener._setup_rf_fft()
+        except Exception, exc:
+            msg =('Failed to setup fft for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg   
 
     def test_start_listener(self):
         """Test starting the frequency listener"""
