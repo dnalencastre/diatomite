@@ -307,8 +307,8 @@ class FreqListener(object):
         """
      
         try:
-            self._gr_top_block.connect((self._radio_source_block, 0), 
-                                                       (self._freq_translation_filter, 0))
+            self._gr_top_block.connect(self._radio_source_block, 
+                                       self._freq_translation_filter)
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
                    ' {m}').format(m=str(exc))
