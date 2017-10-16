@@ -128,6 +128,7 @@ class FreqListener(object):
                                                      self._transition_bw)
         self._radio_source_bw = 0
         self._radio_source_block = None
+        self._gr_top_block = None
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -228,7 +229,7 @@ class FreqListener(object):
         
     def set_source_block(self,source_block):
         """Set the gnu radio source block.
-        source_block -- the gr source block of """
+        source_block -- the gr source block of type osmosdr.osmosdr_swig.source_sptr"""
         
         if not type(source_block) == osmosdr.osmosdr_swig.source_sptr:
             msg = 'Wrong type for radio source block.'
@@ -238,7 +239,19 @@ class FreqListener(object):
             self._radio_source_block = source_block
             msg = 'Radio Source block set.'
             log.debug(msg)         
+    
+    def set_gr_top_block(self,gr_top_block):
+        """Set the gnu radio top block.
+        gr_top_block -- the gr top block of gr.top_block"""       
         
+        type_gr_top_block = type(gr_top_block)
+        
+        if not type_gr_top_block == gr.top_block:
+            msg = ('gr_top_block musb be of type gr.top_block,'
+                   ' was {tgtb}').format(tgtb=type_gr_top_block)
+            raise TypeError(msg)
+        
+        self._gr_top_block = gr_top_block
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -289,24 +302,21 @@ class FreqListener(object):
                                                  self.get_frequency_offset(),
                                                  self.get_radio_source_bw()))
 
-    def connect_frequency_translator_to_source(self,source):
+    def _connect_frequency_translator_to_source(self):
         """Connect the frequency translation filter to the source.
-        source -- a gnu radio source block 
         """
  
         # TODO: RadioSource needs to pass the top_block to the FreqListner
+        print '///////tgtb:{tgtb}'.format(tgtb=type(self._gr_top_block))
     
         try:
-            self._radio_source_block.top_block.connect((self._radio_source_block, 0), 
+            self._gr_top_block.connect((self._radio_source_block, 0), 
                                                        (self._freq_translation_filter, 0))
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
                    '  {m}').format(m=str(exc))
             print msg
             raise
-#         msg = 'Not yet done'
-#         raise Exception(msg)
-
 
 class FreqListenerList(list):
     """Define a list of Frequency listener objects."""
@@ -397,6 +407,8 @@ class RadioSource(object):
 
         self._radio_state = RadioReceiverSate.PRE_INIT
 
+        self._radio_source = None
+
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw,
@@ -408,9 +420,10 @@ class RadioSource(object):
     def _radio_init(self):
         """Initialize the radio hw."""
 
-        self._gr_top_block = gr.top_block(self.get_id())
+        self._gr_top_block = gr.top_block()
         # specific radio initialization to be added on this method on derived
         # classes
+        self._radio_state = RadioReceiverSate.OK
 
     def set_id(self, radio_source_id):
         """Sets the radio source's  id.
@@ -458,6 +471,12 @@ class RadioSource(object):
 
         # pass the bandwidth to the listener
         listener.set_radio_source_bw(self._cap_bw)
+        
+        # pass the source block
+        listener.set_source_block(self.get_source_block())
+        
+        # pass the top block
+        listener.set_gr_top_block(self._gr_top_block)
 
         self._listener_list.append(listener)
         msg = 'FreqListener {i} added to list'.format(i=listener)
@@ -492,6 +511,15 @@ class RadioSource(object):
         
         if self._radio_state == RadioReceiverSate.OK:
             return self._radio_source
+        else:
+            msg = 'Radio Source not started'
+            raise RadioSourceRadioFailureError(msg)
+        
+    def get_gr_top_block(self):
+        """Retrieve the Gnu radio top block for this source"""
+
+        if self._radio_state == RadioReceiverSate.OK:
+            return self._gr_top_block
         else:
             msg = 'Radio Source not started'
             raise RadioSourceRadioFailureError(msg)
@@ -549,6 +577,8 @@ class RTL2838R820T2RadioSource(RadioSource):
 
         self._radio_source = osmosdr.source(self._source_args)
         # TODO: find a way to check if osmosdr.source init is successful
+        
+        # TODO: need to set a top_block object!!!
 
         radio_init_sucess = True
 #        radio_init_sucess = False

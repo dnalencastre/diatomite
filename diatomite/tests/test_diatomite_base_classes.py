@@ -21,6 +21,7 @@
 
 import diatomite.diatomite_base_classes as diatomite_base_classes
 import osmosdr
+from gnuradio import gr
 
 class TestRadioSourceList(object):
     """Test the RadioSourceList class"""
@@ -462,7 +463,45 @@ class TestFreqListener(object):
         else:
             msg = 'FrequencyListener accepted an unacceptable modulation'
             assert False, msg
+            
+    def test_set_gr_top_block(self):
+        """Test setting the gnuradio top block."""
 
+        # setup a RadioSource
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('test_set_gr_top_block')
+        radio_source._radio_init()
+
+        frequency_to_set = 12000
+        bandwidth_to_set = 1000
+
+        id_to_set = 'test_set_gr_top_block'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener.set_frequency(frequency_to_set)
+        freq_listener.set_bandwidth(bandwidth_to_set)
+        
+        gr_top_block = radio_source.get_gr_top_block()
+
+        freq_listener.set_gr_top_block(gr_top_block)
+
+    def test_set_gr_top_block_wrong_type(self):
+        """Test setting the gnuradio top block with a wrong type."""
+
+        frequency_to_set = 12000
+        bandwidth_to_set = 1000
+
+        id_to_set = 'test_set_gr_top_block'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener.set_frequency(frequency_to_set)
+        freq_listener.set_bandwidth(bandwidth_to_set)
+        
+        try:
+            freq_listener.set_gr_top_block('ola')
+        except TypeError:
+            pass
+        else:
+            msg = 'set_gr_top_block accepted an object of wrong type.'
+            assert False, msg
+          
     def test_get_upper_frequency(self):
         """Test retrieving the upper frequency of the Listener."""
 
@@ -505,6 +544,7 @@ class TestFreqListener(object):
         
         # setup a RadioSource
         radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source._radio_init()
         
         # setup a FrequencyListener
         id_to_set = 'test_connect_frequency_translator_to_source'
@@ -517,18 +557,30 @@ class TestFreqListener(object):
         
         # get the gnu radio source
         source_block = radio_source.get_source_block()
+        freq_listener.set_source_block(source_block)
+        
+        # get the gnu radio top block
+        gr_top_block = radio_source.get_gr_top_block()
+        freq_listener.set_gr_top_block(gr_top_block)
         
         # configure the frequency translator
         try:
-            freq_listener.config_frequency_translation(source_block)
+        
+            freq_listener.config_frequency_translation()
         except Exception, exc:
-            msg =('Failed to config_frequency_translation for'
+            msg =('Failed to configure frequency translator for'
                   ' Class {c}, with {m}').format(m=str(exc), 
-                                                 c=type(self._radio_source))
+                                                 c=type(radio_source))
             assert False, msg
+                 
         # connect the frequency translator to the source
-        msg = 'still to be finished'
-        assert False, msg
+        try:
+            freq_listener._connect_frequency_translator_to_source()
+        except Exception, exc:
+            msg =('Failed to connect frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg
 
 
 class TestRadioSource(object):
@@ -683,29 +735,31 @@ class TestRadioSource(object):
 #         else:
 #             print 'type or rsource:{trs}'.format(trs=type(rsource))
 
-    def test_add_frequency_listener(self):
-        """Test adding a frequency listener to a RadioSource object."""
-#         rr = diatomite_base_classes.RadioSource()
-        # get the radio's frequency limits
-        upper_from_radio_source = self._radio_source.get_upper_frequency()
-        lower_from_radio_source = self._radio_source.get_lower_frequency()
-
-        # calculate the bandwidth
-        bwidth = upper_from_radio_source - lower_from_radio_source
-
-        # define the center frequency midway from upper and lower
-        center_freq = (bwidth/2) + lower_from_radio_source
-        frequency_to_set = center_freq
-
-        # ensure the bandwidth fits the radio
-        bandwidth_to_set = bwidth/2
-
-        id_to_set = 'test_add_frequency_listener'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
-        freq_listener.set_frequency(frequency_to_set)
-        freq_listener.set_bandwidth(bandwidth_to_set)
-
-        self._radio_source.add_frequency_listener(freq_listener)
+#     def test_add_frequency_listener(self):
+#         """Test adding a frequency listener to a RadioSource object."""
+#         # get the radio's frequency limits
+#         upper_from_radio_source = self._radio_source.get_upper_frequency()
+#         lower_from_radio_source = self._radio_source.get_lower_frequency()
+# 
+#         # calculate the bandwidth
+#         bwidth = upper_from_radio_source - lower_from_radio_source
+# 
+#         # define the center frequency midway from upper and lower
+#         center_freq = (bwidth/2) + lower_from_radio_source
+#         frequency_to_set = center_freq
+# 
+#         # ensure the bandwidth fits the radio
+#         bandwidth_to_set = bwidth/2
+# 
+#         id_to_set = 'test_add_frequency_listener'
+#         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+#         freq_listener.set_frequency(frequency_to_set)
+#         freq_listener.set_bandwidth(bandwidth_to_set)
+#         
+#         self._radio_source._radio_init()
+# 
+#         print '////////////////t:{t}'.format(t=type(self._radio_source))
+#         self._radio_source.add_frequency_listener(freq_listener)
 
     def test_add_frequency_listener_with_lower_frequency(self):
         """Test adding a frequency listener to a RadioSource object
@@ -795,6 +849,41 @@ class TestRTL2838R820T2RadioSource(object):
                    ' tested:{c}').format(c=type(self._radio_source))
             assert False, msg
 
+    def test_add_frequency_listener(self):
+        """Test adding a frequency listener to a RadioSource object."""
+        # get the radio's frequency limits
+        upper_from_radio_source = self._radio_source.get_upper_frequency()
+        lower_from_radio_source = self._radio_source.get_lower_frequency()
+
+        # calculate the bandwidth
+        bwidth = upper_from_radio_source - lower_from_radio_source
+
+        # define the center frequency midway from upper and lower
+        center_freq = (bwidth/2) + lower_from_radio_source
+        frequency_to_set = center_freq
+
+        # ensure the bandwidth fits the radio
+        bandwidth_to_set = bwidth/2
+
+        id_to_set = 'test_add_frequency_listener'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener.set_frequency(frequency_to_set)
+        freq_listener.set_bandwidth(bandwidth_to_set)
+        
+        self._radio_source._radio_init()
+
+        self._radio_source.add_frequency_listener(freq_listener)
+
+    def test_get_gr_top_block(self):
+        """Test getting the gnuradio top block."""
+        
+        self._radio_source._radio_init()
+        
+        gr_top_block = self._radio_source.get_gr_top_block()
+                        
+        if not type(gr_top_block) == gr.top_block:
+            msg = 'get_gr_top_block returned a wrong type'
+            assert False, msg
 
 class TestDiatomiteProbe(object):
     """Test DiatomiteProbe class."""
