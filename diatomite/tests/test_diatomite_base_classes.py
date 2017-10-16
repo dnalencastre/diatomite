@@ -632,6 +632,66 @@ class TestFreqListener(object):
                                                  c=type(radio_source))
             assert False, msg   
 
+    def test_setup_signal_probe(self):
+        """Test setting up the signal probe"""
+ 
+        # setup a RadioSource
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source._radio_init()
+        
+        # setup a FrequencyListener
+        id_to_set = 'test_setup_signal_probe'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        # determine radio frequency to use on listener
+        # use the radio source center frequency as datum
+        frequency_to_set = radio_source.get_center_frequency() - 1000
+        freq_listener.set_frequency(frequency_to_set)
+        
+        # get the gnu radio source
+        source_block = radio_source.get_source_block()
+        freq_listener.set_source_block(source_block)
+        
+        # get the gnu radio top block
+        gr_top_block = radio_source.get_gr_top_block()
+        freq_listener.set_gr_top_block(gr_top_block)
+        
+        # configure the frequency translator
+        try:
+        
+            freq_listener._config_frequency_translation()
+        except Exception, exc:
+            msg =('Failed to configure frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg
+
+        # connect the frequency translator to the source
+        try:
+            freq_listener._connect_frequency_translator_to_source()
+        except Exception, exc:
+            msg =('Failed to connect frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg      
+        
+        try:
+            freq_listener._setup_rf_fft()
+        except Exception, exc:
+            msg =('Failed to setup fft for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg   
+        
+        try:
+            freq_listener._setup_signal_probe()
+        except Exception, exc:
+            msg =('Failed to setup fft for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg   
+          
+
     def test_start_listener(self):
         """Test starting the frequency listener"""
  
@@ -718,6 +778,61 @@ class TestRadioSource(object):
         else:
             msg = 'RadioSource accepted an ID with unacceptable characters'
             assert False, msg
+
+    def test_set_frequency_below_source_minimums(self):
+        """Test setting the frequency below the radio spectrum minimums."""
+        
+        radio_source_minimuns = self._radio_source.get_lower_frequency()
+
+        if radio_source_minimuns <= 1000:
+            frequency_to_set = radio_source_minimuns - 1
+        else:
+            frequency_to_set = radio_source_minimuns - 1000
+
+        try:
+            self._radio_source.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            msg = 'FreqListener accepted frequency below radio source limits'
+            assert False, msg
+
+    def test_set_frequency_above_radio_source_maximums(self):
+        """Test setting the frequency above the radio source maximums."""
+
+        radio_source_maximums = self._radio_source.get_upper_frequency()
+
+        frequency_to_set = radio_source_maximums + 1000
+
+        try:
+            self._radio_source.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            msg = 'FreqListener accepted frequency above radio spectrum limits'
+            assert False, msg
+
+    def test_set_frequency_only_accepts_integer_numbers(self):
+        """Test that set_frequency only accepts integer numbers."""
+        frequency_to_set = 'blah'
+
+        try:
+            self._radio_source.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            assert False, 'Frequency accepted alphabetic characters.'
+
+        frequency_to_set = 1.5
+        id_to_set = 'test_set_frequency_only_accepts_integer_numbers_b'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+
+        try:
+            freq_listener.set_frequency(frequency_to_set)
+        except ValueError:
+            pass
+        else:
+            assert False, 'Frequency accepted non integer number.'
 
     def test_get_upper_frequency(self):
         """Test retrieving the upper frequency of the RadioSource.
@@ -994,6 +1109,51 @@ class TestRTL2838R820T2RadioSource(object):
             msg = ('Failed starting frequency listeners for Class {c},'
                    ' with {e}').format(c=type(self._radio_source), e=excpt)
             assert False, msg
+
+    def test_get_listener_id_list(self):
+        """Test retrieving list of listener ids."""
+
+        # need a clean radio source
+        rs_id = 'rs2'
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+
+        upper_from_radio_source = radio_source.get_upper_frequency()
+        lower_from_radio_source = radio_source.get_lower_frequency()
+
+        # calculate the bandwidth
+        bwidth = upper_from_radio_source - lower_from_radio_source
+
+        # define the center frequency midway from upper and lower
+        center_freq = (bwidth/2) + lower_from_radio_source
+        frequency_to_set = center_freq
+
+        # add a few elements to the freq list and control list
+        id_to_set_a = 'test_a'
+        id_to_set_b = 'test_b'
+        freq_listener_a = diatomite_base_classes.FreqListener(id_to_set_a)
+        freq_listener_a.set_frequency(frequency_to_set)
+        freq_listener_b = diatomite_base_classes.FreqListener(id_to_set_b)
+        freq_listener_b.set_frequency(frequency_to_set)
+        
+        radio_source._radio_init()
+
+        radio_source.add_frequency_listener(freq_listener_a)
+        radio_source.add_frequency_listener(freq_listener_b)
+
+        control_list = []
+        control_list.append(id_to_set_a.lower())
+        control_list.append(id_to_set_b.lower())
+
+        freq_listener_id_list = radio_source.get_listener_id_list()
+        if not isinstance(freq_listener_id_list, list):
+            msg = ('FreqListenerList.get_listener_id_list did not return a'
+                   ' list')
+            assert False, msg
+
+        if control_list != freq_listener_id_list:
+            msg = ('FreqListenerList.get_listener_id_list did not return the'
+                   ' expected list contents')
+            assert False, msg
             
 
 class TestDiatomiteProbe(object):
@@ -1020,3 +1180,46 @@ class TestDiatomiteProbe(object):
             self._diatomite_probe.add_radio_source(r_receiver)
         except TypeError:
             pass
+        
+        
+class TestAFrequencies(object):
+    """Test with a specific frequency"""
+
+    rs_id = 'testRTL2838R820T2RadioSource'
+    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+    
+    listener_freq_a = 97.8e6
+    receiver_freq = 97e6
+    
+    def test_listener_freq_a(self):
+        """Test listener_freq_a"""
+
+        # set the bandwidth
+        bwidth = 200e3
+
+        # define the center frequency midway from upper and lower
+        
+        self._radio_source.set_frequency(self.receiver_freq)
+
+        # ensure the bandwidth fits the radio
+        bandwidth_to_set = bwidth/2
+
+        # add a new frequency listener
+        id_to_set = 'listener_freq_a'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener.set_frequency(self.listener_freq_a)
+        freq_listener.set_bandwidth(bandwidth_to_set)
+        
+        self._radio_source._radio_init()
+
+        self._radio_source.add_frequency_listener(freq_listener)
+        
+
+        try:
+            self._radio_source.start_frequency_listeners()
+        except Exception, excpt:
+            msg = ('Failed starting frequency listeners for Class {c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            assert False, msg
+                
+    

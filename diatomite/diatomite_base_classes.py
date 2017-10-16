@@ -20,10 +20,13 @@
 """
 
 import logging as log
+import time
 from string import ascii_letters, digits
 from gnuradio import gr
+from gnuradio import blocks
 from gnuradio import filter as grfilter
 from gnuradio.fft import logpwrfft
+import threading
 import osmosdr
 
 
@@ -137,7 +140,10 @@ class FreqListener(object):
         self._fft_frame_rate = 30
         self._fft_avg_alpha = 1.0
         self._fft_average = False
-
+        
+        # probe poll rate in hz
+        self._probe_poll_rate = 10
+        self._fft_signal_level = None
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -341,7 +347,7 @@ class FreqListener(object):
             msg = ('Failed setting up fft with'
                    ' {m}').format(m=str(exc))
             log.debug(msg)
-            raise
+            raise Exception(msg)
         
         # connect the fft to the freq translation filter
         try:
@@ -351,35 +357,80 @@ class FreqListener(object):
             msg = ('Failed to connect the fft to freq translation, with:'
                    ' {m}').format(m=str(exc))
             log.debug(msg)
-            raise
+            raise Exception(msg)
+
+    def _retrieve_fft(self):
+        """Retrieve fft values"""
         
+        while True:
+            
+            #TODO: fft value processing should go here
+            
+            val = self._fft_signal_probe.level()
+#             try:
+#                 self._set_fft_signal_level(val)
+#             except AttributeError:
+#                 pass
+#             print '  val:{v}'.format(v=val)
+            time.sleep(1.0 / self._probe_poll_rate)
+    
+    def _setup_signal_probe(self):
+        """Setup probe to retrieve the fft data"""
+        
+        try:
+            self._fft_signal_probe = blocks.probe_signal_vf(self._fft_size)
+        except Exception, exc:
+            msg = ('Failed to create fft probe, with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+   
+        # connect the signal probe to the fft
+        try:
+            self._gr_top_block.connect(self._log_fft, 
+                                       self._fft_signal_probe)                 
+        except Exception, exc:
+            msg = ('Failed to connect the fft to freq translation, with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+          
+        # set the fft retrieval on it's own thread
+        self._retrieve_fft_thread = threading.Thread(target=self._retrieve_fft)
+        self._retrieve_fft_thread.daemon = True
+        self._retrieve_fft_thread.start()
+    
     def start_listener(self):
         """Start the frequency listener."""
     
+        # configure frequency translator
         try:
             self._config_frequency_translation()
         except Exception, exc:
             msg = ('Failed configuring frequency translation with'
                    ' {m}').format(m=str(exc))
             log.debug(msg)
-            raise
+            raise Exception(msg)
+
         
+        # connect frequency translator to source
         try:
             self._connect_frequency_translator_to_source()
         except Exception, exc:
             msg = ('Failed connecting frequency translation to source'
                    'with {m}').format(m=str(exc))
             log.debug(msg)
-            raise            
+            raise Exception(msg)
         
-        #TODO: add fft connection
+        # setup fft and connect it to frequency translator
         try:
             self._setup_rf_fft()
         except Exception, exc:
             msg = ('Failed to setup RF FFT'
                    'with {m}').format(m=str(exc))
             log.debug(msg)
-            raise    
+            raise Exception(msg)
+
 
         #TODO: add the fft data retrieval
 
@@ -434,7 +485,7 @@ class RadioSource(object):
     _id = ''
 
     # list of frequency listeners
-    _listener_list = FreqListenerList()
+    _listener_list = None
 
     _type = ''
 
@@ -474,6 +525,8 @@ class RadioSource(object):
 
         self._radio_source = None
 
+        self._listener_list = FreqListenerList()
+
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw,
@@ -510,6 +563,31 @@ class RadioSource(object):
             msg = 'Frequency id contains contains unacceptable characters'
             log.error(msg)
             raise RadioSourceBadIdError(msg)
+        
+    def set_frequency(self, frequency):
+        """Set the source's center frequency
+        frequency -- frequency in Hz (integer)"""
+
+        src_lower_freq = self.get_lower_frequency()
+        src_upper_freq = self.get_upper_frequency()
+
+        if not float(frequency).is_integer():
+            msg = 'Frequency is not a whole number'
+            log.error(msg)
+            raise ValueError(msg)
+        elif frequency < src_lower_freq or frequency > src_upper_freq:
+            msg = ('Frequency must be above {fl} hz '
+                   'and below {fu} hz').format(fl=src_lower_freq,
+                                               fu=src_upper_freq)
+            log.error(msg)
+            raise ValueError(msg)
+        else:
+            self._frequency = int(frequency)
+            msg = 'Frequency set to {i}'.format(i=frequency)
+            log.debug(msg)
+
+        
+        
 
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
@@ -571,6 +649,10 @@ class RadioSource(object):
         """Return the center frequency for this source."""
         return self._center_freq
 
+    def get_listener_id_list(self):
+        """Return a list of listener ids configured on this source"""
+        return self._listener_list.get_listener_id_list()
+
     def get_source_block(self):
         """Return the gnu radio source block"""
         
@@ -629,6 +711,8 @@ class RTL2838R820T2RadioSource(RadioSource):
         self._antenna = ''
         self._bandwith = 0
         self._radio_source = None
+
+        self._listener_list = FreqListenerList()
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
