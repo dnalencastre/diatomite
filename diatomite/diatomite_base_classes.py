@@ -151,7 +151,7 @@ class FreqListener(object):
         listener_id -- the frequency listener id.
                         Acceptable characters: ASCII characters, numbers,
                         underscore, dash."""
-
+        
         if listener_id == '':
             msg = 'Frequency id is empty'
             log.error(msg)
@@ -205,6 +205,9 @@ class FreqListener(object):
                                       - self._frequency)
         else:
             self._frequency_offset = 0
+
+        msg = 'Frequency offset set to {i}'.format(i=self._frequency_offset)
+        log.debug(msg)
 
         # TODO: may need to notify working parts of the radio source
 
@@ -267,6 +270,8 @@ class FreqListener(object):
             raise TypeError(msg)
         
         self._gr_top_block = gr_top_block
+        msg = 'Top block set.'
+        log.debug(msg)         
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -316,6 +321,9 @@ class FreqListener(object):
                                                  (self._filter_taps),
                                                  self.get_frequency_offset(),
                                                  self.get_radio_source_bw()))
+        
+        msg = 'Frequency translation set.'
+        log.debug(msg)
 
     def _connect_frequency_translator_to_source(self):
         """Connect the frequency translation filter to the source.
@@ -329,6 +337,9 @@ class FreqListener(object):
                    ' {m}').format(m=str(exc))
             log.debug(msg)
             raise
+
+        msg = 'Frequency translation connected to source.'
+        log.debug(msg)
 
     def _setup_rf_fft(self):
         """Setup an fft to check the RF status."""
@@ -349,6 +360,9 @@ class FreqListener(object):
             log.debug(msg)
             raise Exception(msg)
         
+        msg = 'FFT set up completed.'
+        log.debug(msg)
+        
         # connect the fft to the freq translation filter
         try:
             self._gr_top_block.connect(self._freq_translation_filter, 
@@ -358,6 +372,10 @@ class FreqListener(object):
                    ' {m}').format(m=str(exc))
             log.debug(msg)
             raise Exception(msg)
+
+        msg = 'FFT connected to Frequency translation.'
+        log.debug(msg)
+
 
     def _retrieve_fft(self):
         """Retrieve fft values"""
@@ -371,7 +389,7 @@ class FreqListener(object):
 #                 self._set_fft_signal_level(val)
 #             except AttributeError:
 #                 pass
-#             print '  val:{v}'.format(v=val)
+            print '  val:{v}'.format(v=val)
             time.sleep(1.0 / self._probe_poll_rate)
     
     def _setup_signal_probe(self):
@@ -394,11 +412,17 @@ class FreqListener(object):
                    ' {m}').format(m=str(exc))
             log.debug(msg)
             raise Exception(msg)
+ 
+        msg = 'Launching fft data retrieval thread.'
+        log.debug(msg)
           
         # set the fft retrieval on it's own thread
         self._retrieve_fft_thread = threading.Thread(target=self._retrieve_fft)
         self._retrieve_fft_thread.daemon = True
         self._retrieve_fft_thread.start()
+        
+        msg = 'Signal probe setup done.'
+        log.debug(msg)
     
     def start_listener(self):
         """Start the frequency listener."""
@@ -431,7 +455,14 @@ class FreqListener(object):
             log.debug(msg)
             raise Exception(msg)
 
-
+        try:
+            self._setup_signal_probe()
+        except Exception, exc:
+            msg = ('Failed to signal probe'
+                   'with {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+        
         #TODO: add the fft data retrieval
 
 class FreqListenerList(list):
@@ -674,12 +705,18 @@ class RadioSource(object):
     def start_frequency_listeners(self):
         """Start individual frequency listeners"""
 
+
         #iterate through the listeners and start them
         for freq_listener in self._listener_list:
             freq_listener.start_listener()
-            msg = ('Starting frequency listener '
+            msg = ('started frequency listener '
                    '{fid}').format(fid=freq_listener.get_id())
             log.debug(msg)
+        
+        # wait for the end of the top block
+        self._gr_top_block.start()
+
+        self._gr_top_block.wait()
 
 
 class RTL2838R820T2RadioSource(RadioSource):
