@@ -566,7 +566,7 @@ class TestFreqListener(object):
         # configure the frequency translator
         try:
         
-            freq_listener.config_frequency_translation()
+            freq_listener._config_frequency_translation()
         except Exception, exc:
             msg =('Failed to configure frequency translator for'
                   ' Class {c}, with {m}').format(m=str(exc), 
@@ -578,6 +578,40 @@ class TestFreqListener(object):
             freq_listener._connect_frequency_translator_to_source()
         except Exception, exc:
             msg =('Failed to connect frequency translator for'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg
+
+    def test_start_listener(self):
+        """Test starting the frequency listener"""
+ 
+        # setup a RadioSource
+        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source._radio_init()
+        
+        # setup a FrequencyListener
+        id_to_set = 'test_connect_frequency_translator_to_source'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        # determine radio frequency to use on listener
+        # use the radio source center frequency as datum
+        frequency_to_set = radio_source.get_center_frequency() - 1000
+        freq_listener.set_frequency(frequency_to_set)
+        
+        # get the gnu radio source
+        source_block = radio_source.get_source_block()
+        freq_listener.set_source_block(source_block)
+        
+        # get the gnu radio top block
+        gr_top_block = radio_source.get_gr_top_block()
+        freq_listener.set_gr_top_block(gr_top_block)
+        
+        # start the listener
+        try:
+        
+            freq_listener.start_listener()
+        except Exception, exc:
+            msg =('Failed to start the listener'
                   ' Class {c}, with {m}').format(m=str(exc), 
                                                  c=type(radio_source))
             assert False, msg
@@ -807,16 +841,6 @@ class TestRadioSource(object):
                    ' frequency').format(o=type(self._radio_source).__name__)
             assert False, msg
 
-    def test_start_frequency_listeners(self):
-        """Test the process that start the frequency listeners"""
-
-        try:
-            self._radio_source.start_frequency_listeners()
-        except Exception, excpt:
-            msg = ('Failed starting frequency listeners for Class {c},'
-                   ' with {e}').format(c=type(self._radio_source), e=excpt)
-            assert False, msg
-
 
 class TestRTL2838R820T2RadioSource(object):
     """Test RTL2838R820T2RadioSource class"""
@@ -884,6 +908,43 @@ class TestRTL2838R820T2RadioSource(object):
         if not type(gr_top_block) == gr.top_block:
             msg = 'get_gr_top_block returned a wrong type'
             assert False, msg
+
+
+    def test_start_frequency_listeners(self):
+        """Test the process that start the frequency listeners"""
+
+        # add a new frequency listener
+        # get the radio's frequency limits
+        upper_from_radio_source = self._radio_source.get_upper_frequency()
+        lower_from_radio_source = self._radio_source.get_lower_frequency()
+
+        # calculate the bandwidth
+        bwidth = upper_from_radio_source - lower_from_radio_source
+
+        # define the center frequency midway from upper and lower
+        center_freq = (bwidth/2) + lower_from_radio_source
+        frequency_to_set = center_freq
+
+        # ensure the bandwidth fits the radio
+        bandwidth_to_set = bwidth/2
+
+        id_to_set = 'test_start_frequency_listeners'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener.set_frequency(frequency_to_set)
+        freq_listener.set_bandwidth(bandwidth_to_set)
+        
+        self._radio_source._radio_init()
+
+        self._radio_source.add_frequency_listener(freq_listener)
+        
+
+        try:
+            self._radio_source.start_frequency_listeners()
+        except Exception, excpt:
+            msg = ('Failed starting frequency listeners for Class {c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            assert False, msg
+            
 
 class TestDiatomiteProbe(object):
     """Test DiatomiteProbe class."""

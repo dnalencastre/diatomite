@@ -294,7 +294,7 @@ class FreqListener(object):
         """Get the radio source bandwidth for this frequency listener"""
         self._radio_source_bw = radio_source_bw
 
-    def config_frequency_translation(self):
+    def _config_frequency_translation(self):
         """Configure the frequency translation filter."""
         self._freq_translation_filter = (
             grfilter.freq_xlating_fir_filter_ccc(self._decimation,
@@ -305,18 +305,38 @@ class FreqListener(object):
     def _connect_frequency_translator_to_source(self):
         """Connect the frequency translation filter to the source.
         """
- 
-        # TODO: RadioSource needs to pass the top_block to the FreqListner
-        print '///////tgtb:{tgtb}'.format(tgtb=type(self._gr_top_block))
-    
+     
         try:
             self._gr_top_block.connect((self._radio_source_block, 0), 
                                                        (self._freq_translation_filter, 0))
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
-                   '  {m}').format(m=str(exc))
+                   ' {m}').format(m=str(exc))
             print msg
             raise
+
+    def start_listener(self):
+        """Start the frequency listener."""
+    
+        try:
+            self._config_frequency_translation()
+        except Exception, exc:
+            msg = ('Failed configuring frequency translation with'
+                   ' {m}').format(m=str(exc))
+            print msg
+            raise
+        
+        try:
+            self._connect_frequency_translator_to_source()
+        except Exception, exc:
+            msg = ('Failed connecting frequency translation to source'
+                   'with {m}').format(m=str(exc))
+            print msg
+            raise            
+        
+        #TODO: add fft connection
+        
+        #TODO: add the fft data retrieval
 
 class FreqListenerList(list):
     """Define a list of Frequency listener objects."""
@@ -527,10 +547,12 @@ class RadioSource(object):
     def start_frequency_listeners(self):
         """Start individual frequency listeners"""
 
-        #TODO: iterate through the listeners on the list and call the relevant method
-
-        msg = 'Not yet done'
-        raise Exception(msg)
+        #iterate through the listeners and start them
+        for freq_listener in self._listener_list:
+            freq_listener.start_listener()
+            msg = ('Starting frequency listener '
+                   '{fid}').format(fid=freq_listener.get_id())
+            log.debug(msg)
 
 
 class RTL2838R820T2RadioSource(RadioSource):
