@@ -22,6 +22,112 @@
 import diatomite.diatomite_base_classes as diatomite_base_classes
 import osmosdr
 from gnuradio import gr
+import time
+
+class TestDataTap(object):
+    """Test the DataTap class"""
+    
+    id_to_set = 'test_data_tap'
+    _test_data_tap = diatomite_base_classes.DataTap(id_to_set)
+    
+    def test_init_and_stop(self):
+        id_to_set = 'test_init_and_stop'
+        
+        try:
+            dt = diatomite_base_classes.DataTap(id_to_set)
+        except Exception, excpt:
+            msg = ('Unable to initialize  DataTap,'
+                   ' with {e}').format(e=excpt)
+            assert False, msg
+            
+        try:
+            dt.stop()
+        except Exception, excpt:
+            msg = ('DataTap stop failed,'
+                   ' with {e}').format(e=excpt)
+            assert False, msg
+            
+    def test_set_and_get_id(self):
+        """Test setting and retrieving data tap id, Checks that string is
+        stored as lower case."""
+        id_to_set = 'test_id123-A'
+        data_tap = diatomite_base_classes.DataTap(id_to_set)
+        data_tap._set_id(id_to_set)
+
+        id_from_dt = data_tap._get_id()
+
+        if not id_to_set.lower() == id_from_dt:
+            assert False, 'Id that was set was not returned correctly'
+            
+        data_tap.stop()
+
+    def test_set_id_with_wrong_characters(self):
+        """Test setting a datatap ID containing unacceptable characters."""
+
+        # needs to be initialized correctly
+        id_to_set = 'initial'
+        data_tap = diatomite_base_classes.DataTap(id_to_set)
+        id_to_set = 'test!@##$$%$%^'
+        try:
+            data_tap._set_id(id_to_set)
+        except diatomite_base_classes.BadIdError:
+            pass
+        else:
+            data_tap.stop()
+            msg = ('datatap accepted an ID with unacceptable '
+                   'characters')
+            assert False, msg
+
+    def get_file(self):
+        """"Test getting the file name."""
+        self._test_data_tap._get_file()
+
+    def test_get_value(self):
+        """Test retrieving the value"""
+      
+        val_to_set = 'test_get_value'
+        self._test_data_tap.update_value(val_to_set)
+       
+        val_from_gv = self._test_data_tap._get_value()
+        
+        if val_from_gv != val_to_set:
+            msg = ('_get_value returned a different value than it was set to.'
+                   'expected:{vts}, returned:{vfg}').format(vts=val_to_set, 
+                                                            vfg=val_from_gv)
+            assert False, msg
+
+    def test_output(self):
+        """Test output of tap"""
+        
+        # use a different DataTap to ensure the file isn't overwritten by other thread
+        id_to_set = 'test_output'
+        test_data_tap = diatomite_base_classes.DataTap(id_to_set)
+        
+        file_path = test_data_tap._get_file()
+  
+        val_to_set2 = 'test_output'
+        test_data_tap.update_value(val_to_set2)
+             
+        # wait for the file to be ready
+        time.sleep(2)
+        tap_file = open(file_path,'r')
+        file_contents = tap_file.readline().rstrip()
+          
+        if file_contents != val_to_set2:
+            msg = ('value in file differs from what is expected.'
+                   'expected:{vts}, on file:{vff}').format(vts=val_to_set2, 
+                                                            vff=file_contents)
+            assert False, msg           
+
+        test_data_tap.stop() 
+
+    def test_stop(self):
+        """Test the stop method."""
+        # must be last to clean up the object set at the start of this test set
+         
+        self._test_data_tap.stop()
+        
+
 
 class TestRadioSourceList(object):
     """Test the RadioSourceList class"""
@@ -239,7 +345,7 @@ class TestFreqListener(object):
         id_to_set = 'test!@##$$%$%^'
         try:
             freq_listener.set_id(id_to_set)
-        except diatomite_base_classes.FreqListenerBadIdError:
+        except diatomite_base_classes.BadIdError:
             pass
         else:
             msg = ('FrequencyListener accepted an ID with unacceptable '
@@ -254,7 +360,7 @@ class TestFreqListener(object):
         id_to_set = ''
         try:
             freq_listener.set_id(id_to_set)
-        except diatomite_base_classes.FreqListenerBadIdError:
+        except diatomite_base_classes.BadIdError:
             pass
         else:
             assert False, 'FrequencyListener accepted an empty ID'
@@ -726,6 +832,42 @@ class TestFreqListener(object):
                                                  c=type(radio_source))
             assert False, msg
 
+    def test_set_and_get_create_fft_tap(self):
+        """Test set_create_fft_tap and get_create_fft_tap"""
+        create_fft_tap = False
+        id_to_set = 'test_set_and_get_create_fft_tap'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        try:
+            freq_listener.set_create_fft_tap(create_fft_tap)
+        except Exception, exc:
+            msg =('Failed to set_create_fft_tap'
+                  ' with {m}').format(m=str(exc))
+            assert False, msg
+
+        try:
+            create_fft_tap_from_fl = freq_listener.get_create_fft_tap()
+        except Exception, exc:
+            msg =('Failed to get_create_fft_tap'
+                  ' with {m}').format(m=str(exc))
+            assert False, msg
+
+        if not create_fft_tap == create_fft_tap_from_fl:
+            assert False, 'Value set on set_create_fft_tap no returned correctly.'
+
+    def test_set_create_fft_tap_with_bad_value(self):
+        """Test set_create_fft_tap with a non boolean"""
+        create_fft_tap = 25
+        id_to_set = 'test_set_create_fft_tap_with_bad_value'
+        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        
+        try:
+            freq_listener.set_create_fft_tap(create_fft_tap)
+        except TypeError:
+            pass
+        else:
+            msg = 'set_create_fft_tap accepted non boolean value!'
+            assert False, msg
 
 class TestRadioSource(object):
     """Test the RadioSource class"""
@@ -751,7 +893,7 @@ class TestRadioSource(object):
         id_to_set = ''
         try:
             radio_source.set_id(id_to_set)
-        except diatomite_base_classes.RadioSourceBadIdError:
+        except diatomite_base_classes.BadIdError:
             pass
         else:
             assert False, 'RadioSource accepted an empty ID'
@@ -773,7 +915,7 @@ class TestRadioSource(object):
         id_to_set = 'test!@##$$%$%^'
         try:
             self._radio_source.set_id(id_to_set)
-        except diatomite_base_classes.RadioSourceBadIdError:
+        except diatomite_base_classes.BadIdError:
             pass
         else:
             msg = 'RadioSource accepted an ID with unacceptable characters'

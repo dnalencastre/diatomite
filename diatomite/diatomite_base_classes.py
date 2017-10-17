@@ -34,12 +34,6 @@ import sys
 import exceptions
 import errno
 
-class FreqListenerBadIdError(Exception):
-    """Raised when a FreqListener is passed an empty id or with unacceptable
-    characters."""
-    pass
-
-
 class FreqListenerInvalidModulation(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
@@ -50,12 +44,10 @@ class RadioSourceFrequencyOutOfBounds(Exception):
     bandwidth that don't fit within the radio source's frequency abilites."""
     pass
 
-
-class RadioSourceBadIdError(Exception):
-    """Raised when a FreqListener is passed an id with unacceptable
+class BadIdError(Exception):
+    """Raised when an object is passed an id with unacceptable
     characters."""
     pass
-
 
 class RadioSourceListIdNotUniqueError(Exception):
     """Raised when a RadioSource with an already occurring id is added to a
@@ -97,6 +89,149 @@ class RadioReceiverSate(object):
     OK = 1
     FAILED = 2
 
+
+class DataTap(object):
+    """Define an object to stream text data onto a named pipe
+    Will output to a previously created named pipe/file.
+    If an error occurs while creating the named pipe (other than that the
+    file already exists), tap output thread will not be started."""
+    
+    _tap_file_extension = '.tap'
+
+    def __init__(self, tap_id):
+        """Setup the tap and Create the named pipe.
+        tap_id -- id to """
+
+        self._set_id(tap_id)
+        
+        # init the directory as the current directory
+        self._tap_directory = os.getcwd()
+
+        # set the stop event for the thread
+        self._tap_thread_stop = threading.Event()
+        
+        # set the update event for the thread
+        self._tap_value_update = threading.Event()
+
+        self._tap_value = ''
+        
+        # set a lock
+        self._tap_lock = threading.RLock()
+        
+        # set the file name
+        self._set_file()
+ 
+        # create a named pipe, check
+        try:
+            os.mkfifo(self._get_file())
+        except exceptions.OSError, exc:
+            
+            if exc.errno == errno.EEXIST:
+                msg = ('File already exists , Failed creating named pipe for fft tap with:'
+                       ' {m}').format(m=str(exc))
+                log.error(msg)
+                msg = sys.exc_info()
+                log.warning(msg)
+        except Exception, exc:
+            msg = ('Failed creating named pipe for fft tap with:'
+                   ' {m}').format(m=str(exc))
+            log.error(msg)
+            msg = sys.exc_info()
+            log.error(msg)
+            raise
+
+        # set the tap update on it's own thread
+        self._update_tap_thread = threading.Thread(target=self._output_value, 
+                                                   args=(self._tap_thread_stop,
+                                                         self._tap_value_update))
+        self._update_tap_thread.daemon = True
+        self._update_tap_thread.start()
+        
+        msg = 'FFT tap setup done.'
+        log.debug(msg)
+
+    def _set_file(self):
+        """Set the file name"""
+        # setup file name and path
+        self._tap_file_name = self._get_id() + self._tap_file_extension
+        self._tap_file_path = os.path.join(self._tap_directory, self._tap_file_name)
+        
+    def _get_file(self):
+        """Get the file name and path for the tap"""
+        return self._tap_file_path
+
+    def _set_id(self, ident):
+        """Sets the Data tap id.
+        Converts alphabetic characters to lower case.
+        ident -- the id.
+                        Acceptable characters: ASCII characters, numbers,
+                        underscore, dash."""
+        
+        if ident == '':
+            msg = 'Identity is empty'
+            log.error(msg)
+            raise BadIdError(msg)
+        if all(character in ascii_letters+digits+'_'+'-'
+               for character in ident):
+            self._id = ident.lower()
+            msg = 'id set to {i}'.format(i=ident.lower())
+            log.debug(msg)
+        else:
+            msg = 'Frequency id contains can only contain AZaz09-_'
+            log.error(msg)
+            raise BadIdError(msg)
+
+    def set_directory(self, path):
+        """Set the directory where tap files should be written to.
+        path -- full path to the directory"""
+        pass
+        # TODO: write the set_tap_directory
+
+    def _get_id(self):
+        """Returns the data tap id."""
+        return self._id
+    
+    def stop(self):
+        """Cleanup the live fft values tap.
+        Will remove the tap file from the file system"""
+        
+        # stop the thread
+        self._tap_thread_stop.set()
+        # remove tap file
+        os.remove(self._tap_file_path)
+    
+    def _output_value(self, stop_event, update_event):
+        """Updates the values present on the tap"""
+
+        while not stop_event.is_set():
+            
+            # wait for the update event
+            update_event.wait()
+
+            output = '{v}\n'.format(v=self._get_value())
+            
+            with open(self._tap_file_path, 'w') as f_handle:
+                f_handle.writelines(output)
+
+    def update_value(self, value):
+        """Updates the values present on the fft tap.
+        value - value to update the tap (string)"""
+
+        # update the value
+        self._tap_lock.acquire()
+        self._tap_value = value
+        self._tap_lock.release()
+
+        # signal the worker thread
+        self._tap_value_update.set()
+        
+    def _get_value(self):
+        """Get the value, with locking"""
+        self._tap_lock.acquire()
+        value = self._tap_value
+        self._tap_lock.release()
+        
+        return value    
 
 class FreqListener(object):
     """Define the subsystem to listen to a given radio frequency.
@@ -164,7 +299,7 @@ class FreqListener(object):
         if listener_id == '':
             msg = 'Frequency id is empty'
             log.error(msg)
-            raise FreqListenerBadIdError(msg)
+            raise BadIdError(msg)
         if all(character in ascii_letters+digits+'_'+'-'
                for character in listener_id):
             self._id = listener_id.lower()
@@ -173,7 +308,7 @@ class FreqListener(object):
         else:
             msg = 'Frequency id contains can only contain AZaz09-_'
             log.error(msg)
-            raise FreqListenerBadIdError(msg)
+            raise BadIdError(msg)
         
     def set_tap_directory(self, path):
         """Set the directory where tap files should be written to.
@@ -352,7 +487,6 @@ class FreqListener(object):
 
     def get_create_fft_tap(self):
         """Get if the listener is to create an fft tap."""
-        
         return self._create_fft_tap
 
     def _connect_frequency_translator_to_source(self):
@@ -490,9 +624,6 @@ class FreqListener(object):
                 f_handle.writelines(output)
 
             stop_event.wait(1.0 / self._probe_poll_rate)
-            
-            
-            
 
     def _setup_signal_probe(self):
         """Setup probe to retrieve the fft data"""
@@ -695,7 +826,7 @@ class RadioSource(object):
         if radio_source_id == '':
             msg = 'Radio source id is empty'
             log.error(msg)
-            raise RadioSourceBadIdError(msg)
+            raise BadIdError(msg)
         if all(character in ascii_letters+digits+'_'+'-'
                for character in radio_source_id):
             self._id = radio_source_id.lower()
@@ -704,7 +835,7 @@ class RadioSource(object):
         else:
             msg = 'Frequency id contains contains unacceptable characters'
             log.error(msg)
-            raise RadioSourceBadIdError(msg)
+            raise BadIdError(msg)
         
     def set_frequency(self, frequency):
         """Set the source's center frequency
