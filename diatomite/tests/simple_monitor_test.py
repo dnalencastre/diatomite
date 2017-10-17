@@ -53,6 +53,7 @@ class TestFrequencies(object):
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
         freq_listener.set_frequency(self.listener_freq_a)
         freq_listener.set_bandwidth(bandwidth_to_set)
+        freq_listener.set_create_fft_tap(True)
         
         self._radio_source._radio_init()
 

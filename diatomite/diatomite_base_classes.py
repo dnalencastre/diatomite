@@ -28,7 +28,8 @@ from gnuradio import filter as grfilter
 from gnuradio.fft import logpwrfft
 import threading
 import osmosdr
-
+from collections import deque
+import os
 
 class FreqListenerBadIdError(Exception):
     """Raised when a FreqListener is passed an empty id or with unacceptable
@@ -144,6 +145,11 @@ class FreqListener(object):
         # probe poll rate in hz
         self._probe_poll_rate = 10
         self._fft_signal_level = None
+        
+        self._create_fft_tap = False
+        
+        # write the taps to the current directory
+        self._tap_directory = os.getcwd()
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -165,6 +171,12 @@ class FreqListener(object):
             msg = 'Frequency id contains can only contain AZaz09-_'
             log.error(msg)
             raise FreqListenerBadIdError(msg)
+        
+    def set_tap_directory(self, path):
+        """Set the directory where tap files should be written to.
+        path -- full path to the directory"""
+        pass
+        # TODO: write the set_tap_directory
 
     def set_frequency(self, frequency):
         """Sets the frequency for the listener.
@@ -265,13 +277,23 @@ class FreqListener(object):
         type_gr_top_block = type(gr_top_block)
         
         if not type_gr_top_block == gr.top_block:
-            msg = ('gr_top_block musb be of type gr.top_block,'
+            msg = ('gr_top_block must be of type gr.top_block,'
                    ' was {tgtb}').format(tgtb=type_gr_top_block)
             raise TypeError(msg)
         
         self._gr_top_block = gr_top_block
         msg = 'Top block set.'
         log.debug(msg)         
+
+    def set_create_fft_tap(self,create_fft_tap):
+        """Inform if taps are to be created
+        create_fft_tap - if an fft tap is to be created True or False"""
+        
+        if isinstance(create_fft_tap, bool):
+            self._create_fft_tap = create_fft_tap
+        else:
+            msg = 'create_fft_tap must be a boolean'
+            raise TypeError(msg)
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -324,6 +346,11 @@ class FreqListener(object):
         
         msg = 'Frequency translation set.'
         log.debug(msg)
+
+    def get_create_fft_tap(self):
+        """Get if the listener is to create an fft tap."""
+        
+        return self._create_fft_tap
 
     def _connect_frequency_translator_to_source(self):
         """Connect the frequency translation filter to the source.
@@ -389,9 +416,59 @@ class FreqListener(object):
 #                 self._set_fft_signal_level(val)
 #             except AttributeError:
 #                 pass
-            print '  val:{v}'.format(v=val)
+#             print '  val:{v}'.format(v=val)
             time.sleep(1.0 / self._probe_poll_rate)
+
+    def _setup_fft_tap(self):
+        """Setup a tap to provide live fft values.
+        Will create a file with that will have the latest set of 
+        fft values"""
+                
+
+        
+        msg = 'Launching fft tap thread.'
+        log.debug(msg)
+        
+        # set the stop event for the thread
+        self._update_fft_tap_thread_stop = threading.Event()
+
+        # setup file name and path
+        self._tap_file_name = self._id + '-' + '.tap'
+        self._tap_file_path = os.path.join(self._tap_directory, self._tap_file_name)
+
+        # set the fft retrieval on it's own thread
+        self._update_fft_tap_thread = threading.Thread(target=self._update_fft_tap, args=(self._update_fft_tap_thread_stop,))
+        self._update_fft_tap_thread.daemon = True
+        self._update_fft_tap_thread.start()
+        
+        msg = 'FFT tap setup done.'
+        log.debug(msg)
     
+    
+    def _teardown_fft_tap(self):
+        """Cleanup the live fft values tap.
+        Will remove the tap file from the file system"""
+        
+        # stop the thread
+        self._update_fft_tap_thread_stop()
+        # remove tap file
+        os.remove(self._tap_file_path)
+    
+    def _update_fft_tap(self, stop_event):
+        """Updates the values present on the fft tap"""
+        while not stop_event.is_set():
+            val = self._fft_signal_probe.level()
+            current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+            output = '{t}:{v}\n'.format(t=current_time, v=val)
+            
+            self._tap_file_handle = open(self._tap_file_path, 'w')
+
+            self._tap_file_handle.writelines(output)
+            
+            self._tap_file_handle.close()
+          
+            stop_event.wait(1.0 / self._probe_poll_rate)
+
     def _setup_signal_probe(self):
         """Setup probe to retrieve the fft data"""
         
@@ -436,7 +513,6 @@ class FreqListener(object):
             log.debug(msg)
             raise Exception(msg)
 
-        
         # connect frequency translator to source
         try:
             self._connect_frequency_translator_to_source()
@@ -458,11 +534,21 @@ class FreqListener(object):
         try:
             self._setup_signal_probe()
         except Exception, exc:
-            msg = ('Failed to signal probe'
+            msg = ('Failed to setup signal probe'
                    'with {m}').format(m=str(exc))
             log.debug(msg)
             raise Exception(msg)
         
+        # handle the fft tap
+        if self._create_fft_tap:
+            try:
+                self._setup_fft_tap()
+            except Exception, exc:
+                msg = ('Failed to setup fft tap'
+                       'with {m}').format(m=str(exc))
+                log.debug(msg)
+                raise Exception(msg)     
+   
         #TODO: add the fft data retrieval
 
 class FreqListenerList(list):
