@@ -21,6 +21,7 @@
 
 import logging as log
 import time
+import datetime
 from string import ascii_letters, digits
 from gnuradio import gr
 from gnuradio import blocks
@@ -28,7 +29,6 @@ from gnuradio import filter as grfilter
 from gnuradio.fft import logpwrfft
 import threading
 import osmosdr
-from collections import deque
 import os
 
 class FreqListenerBadIdError(Exception):
@@ -458,7 +458,8 @@ class FreqListener(object):
         """Updates the values present on the fft tap"""
         while not stop_event.is_set():
             val = self._fft_signal_probe.level()
-            current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            current_time = datetime.datetime.utcnow().isoformat()
             output = '{t}:{v}\n'.format(t=current_time, v=val)
             
             with open(self._tap_file_path, 'w') as f_handle:
