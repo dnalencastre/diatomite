@@ -461,12 +461,9 @@ class FreqListener(object):
             current_time = time.strftime('%Y-%m-%d %H:%M:%S')
             output = '{t}:{v}\n'.format(t=current_time, v=val)
             
-            self._tap_file_handle = open(self._tap_file_path, 'w')
-
-            self._tap_file_handle.writelines(output)
-            
-            self._tap_file_handle.close()
-          
+            with open(self._tap_file_path, 'w') as f_handle:
+                f_handle.writelines(output)
+                      
             stop_event.wait(1.0 / self._probe_poll_rate)
 
     def _setup_signal_probe(self):
