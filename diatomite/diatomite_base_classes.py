@@ -30,6 +30,9 @@ from gnuradio.fft import logpwrfft
 import threading
 import osmosdr
 import os
+import sys
+import exceptions
+import errno
 
 class FreqListenerBadIdError(Exception):
     """Raised when a FreqListener is passed an empty id or with unacceptable
@@ -421,11 +424,11 @@ class FreqListener(object):
 
     def _setup_fft_tap(self):
         """Setup a tap to provide live fft values.
-        Will create a file with that will have the latest set of 
-        fft values"""
-                
+        Create a named pipe containing the latest set of fft values.
+        Will output to a previously created named pipe/file.
+        If an error occurs while creating the named pipe (other than that the
+        file already exists), tap output thread will not be started."""
 
-        
         msg = 'Launching fft tap thread.'
         log.debug(msg)
         
@@ -433,9 +436,29 @@ class FreqListener(object):
         self._update_fft_tap_thread_stop = threading.Event()
 
         # setup file name and path
-        self._tap_file_name = self._id + '-' + '.tap'
+        self._tap_file_name = self._id + '.tap'
         self._tap_file_path = os.path.join(self._tap_directory, self._tap_file_name)
-
+        
+        
+        # create a named pipe, check
+        try:
+            os.mkfifo(self._tap_file_path)
+        except exceptions.OSError, exc:
+            
+            if exc.errno == errno.EEXIST:
+                msg = ('File already exists , Failed creating named pipe for fft tap with:'
+                       ' {m}').format(m=str(exc))
+                log.error(msg)
+                msg = sys.exc_info()
+                log.warning(msg)
+        except Exception, exc:
+            msg = ('Failed creating named pipe for fft tap with:'
+                   ' {m}').format(m=str(exc))
+            log.error(msg)
+            msg = sys.exc_info()
+            log.error(msg)
+            raise
+        
         # set the fft retrieval on it's own thread
         self._update_fft_tap_thread = threading.Thread(target=self._update_fft_tap, args=(self._update_fft_tap_thread_stop,))
         self._update_fft_tap_thread.daemon = True
@@ -443,7 +466,7 @@ class FreqListener(object):
         
         msg = 'FFT tap setup done.'
         log.debug(msg)
-    
+
     
     def _teardown_fft_tap(self):
         """Cleanup the live fft values tap.
@@ -456,16 +479,20 @@ class FreqListener(object):
     
     def _update_fft_tap(self, stop_event):
         """Updates the values present on the fft tap"""
+
         while not stop_event.is_set():
             val = self._fft_signal_probe.level()
             
             current_time = datetime.datetime.utcnow().isoformat()
-            output = '{t}:{v}\n'.format(t=current_time, v=val)
+            output = '{t};{v}\n'.format(t=current_time, v=val)
             
             with open(self._tap_file_path, 'w') as f_handle:
                 f_handle.writelines(output)
-                      
+
             stop_event.wait(1.0 / self._probe_poll_rate)
+            
+            
+            
 
     def _setup_signal_probe(self):
         """Setup probe to retrieve the fft data"""
@@ -802,6 +829,7 @@ class RadioSource(object):
 
         self._gr_top_block.wait()
 
+        self._gr_top_block.stop()
 
 class RTL2838R820T2RadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2838 receiver

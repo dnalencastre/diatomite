@@ -67,9 +67,6 @@ class TestFrequencies(object):
         except Exception, excpt:
             msg = ('Failed starting frequency listeners for Class {c},'
                    ' with {e}').format(c=type(self._radio_source), e=excpt)
-            assert False, msg
-            
-            
 
 
 test = TestFrequencies()
