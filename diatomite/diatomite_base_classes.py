@@ -269,6 +269,8 @@ class FreqListener(object):
 
     # modulation
     _modulation = ''
+    
+    # TODO: unify fft probe and tap initialization and teardown
 
     # frequency offset from the radio source
     _frequency_offset = 0
@@ -719,13 +721,12 @@ class FreqListener(object):
         
         if self._status == 'RUNNING':
  
- 
             if self._create_fft_tap:
             # stop the fft tap
                 try:
                     self._teardown_fft_tap()
                 except Exception, exc:
-                    msg = ('Failed tearing down fft with --<>:'
+                    msg = ('Failed tearing down fft with:'
                            ' {m}').format(m=str(exc))
                     raise Exception(msg)
         
@@ -899,9 +900,6 @@ class RadioSource(object):
             msg = 'Frequency set to {i}'.format(i=frequency)
             log.debug(msg)
 
-        
-        
-
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
         listener -- FreqListener"""
@@ -998,19 +996,15 @@ class RadioSource(object):
         # wait for the end of the top block
         self._gr_top_block.start()
 
-        self._gr_top_block.wait()
-
-        self._gr_top_block.stop()        
-
+#         self._gr_top_block.wait()
         
         if stop:
             self.stop_frequency_listeners()
             
     def stop(self):
         """Stop the radio listener"""
-        
-        msg = 'Not yet done'
-        raise Exception(msg)
+
+        self._gr_top_block.stop()
     
     def stop_frequency_listeners(self):
         """Stop  individual frequency listeners."""
@@ -1020,10 +1014,7 @@ class RadioSource(object):
     
         #iterate through the listeners and start them
         for freq_listener in self._listener_list:
-            
-            msg = '--->type freq listner:{t}'.format(t=type(freq_listener))
-            print msg
-            log.debug(msg)
+
             try:
                 freq_listener.stop()
             except Exception, exc:

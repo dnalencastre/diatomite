@@ -21,6 +21,7 @@
 
 import sys
 import os
+import time
 sys.path.append(os.path.abspath('../'))
 import diatomite.diatomite_base_classes as diatomite_base_classes
 import logging
@@ -73,8 +74,20 @@ class TestFrequencies(object):
         print 'Listeners:{l}'.format(l=self._radio_source.get_listener_id_list())
 
 
+    def stop_source(self):
+        try:
+            self._radio_source.stop()
+        except Exception, excpt:
+            msg = ('Failed stoppin source{c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            logging.error(msg)
+            raise
 
 test = TestFrequencies()
 
 test.test_listener_freq_a()
 test.start_source()
+
+# not yet wworking...
+time.sleep(5)
+test.stop_source()
