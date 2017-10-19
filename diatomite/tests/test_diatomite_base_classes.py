@@ -834,7 +834,7 @@ class TestFreqListener(object):
 
     def test_set_and_get_create_fft_tap(self):
         """Test set_create_fft_tap and get_create_fft_tap"""
-        create_fft_tap = False
+        create_fft_tap = True
         id_to_set = 'test_set_and_get_create_fft_tap'
         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
         
