@@ -738,8 +738,8 @@ class TestFreqListener(object):
                                                  c=type(radio_source))
             assert False, msg   
 
-    def test_setup_signal_probe(self):
-        """Test setting up the signal probe"""
+    def test_setup_stop_signal_probe(self):
+        """Test setting up and stopping the signal probe"""
  
         # setup a RadioSource
         radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
@@ -796,10 +796,17 @@ class TestFreqListener(object):
                   ' Class {c}, with {m}').format(m=str(exc), 
                                                  c=type(radio_source))
             assert False, msg   
-          
+            
+        try:
+            freq_listener._stop_signal_probe()
+        except Exception, exc:
+            msg =('Failed to stop fft signal probe'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg   
 
-    def test_start_listener(self):
-        """Test starting the frequency listener"""
+    def test_start_stop(self):
+        """Test starting and stopping the frequency listener"""
  
         # setup a RadioSource
         radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
@@ -825,12 +832,23 @@ class TestFreqListener(object):
         # start the listener
         try:
         
-            freq_listener.start_listener()
+            freq_listener.start()
         except Exception, exc:
             msg =('Failed to start the listener'
                   ' Class {c}, with {m}').format(m=str(exc), 
                                                  c=type(radio_source))
             assert False, msg
+            
+        time.sleep(5)    
+        
+        try:
+            freq_listener.stop()
+        except Exception, exc:
+            msg =('Failed to stop the listener'
+                  ' Class {c}, with {m}').format(m=str(exc), 
+                                                 c=type(radio_source))
+            assert False, msg          
+
 
     def test_set_and_get_create_fft_tap(self):
         """Test set_create_fft_tap and get_create_fft_tap"""
@@ -1217,8 +1235,8 @@ class TestRTL2838R820T2RadioSource(object):
             assert False, msg
 
 
-    def test_start_frequency_listeners(self):
-        """Test the process that start the frequency listeners"""
+    def test_start_and_stop_frequency_listeners(self):
+        """Test starting and stopping the frequency listeners"""
 
         # add a new frequency listener
         # get the radio's frequency limits
@@ -1240,6 +1258,8 @@ class TestRTL2838R820T2RadioSource(object):
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
+        freq_listener.set_create_fft_tap(True)
+        
         self._radio_source._radio_init()
 
         self._radio_source.add_frequency_listener(freq_listener)
@@ -1249,6 +1269,16 @@ class TestRTL2838R820T2RadioSource(object):
             self._radio_source.start_frequency_listeners()
         except Exception, excpt:
             msg = ('Failed starting frequency listeners for Class {c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            assert False, msg
+
+
+        time.sleep(5)
+
+        try:
+            self._radio_source.stop_frequency_listeners()
+        except Exception, excpt:
+            msg = ('Failed stopping frequency listeners for Class {c},'
                    ' with {e}').format(c=type(self._radio_source), e=excpt)
             assert False, msg
 
@@ -1296,7 +1326,17 @@ class TestRTL2838R820T2RadioSource(object):
             msg = ('FreqListenerList.get_listener_id_list did not return the'
                    ' expected list contents')
             assert False, msg
-            
+        
+        
+    def test_start(self):
+        """Test the start method"."""
+        
+        self._radio_source.start()
+        
+    def test_stop(self):
+        """Test the stop method"."""
+        
+        self._radio_source.start()
 
 class TestDiatomiteProbe(object):
     """Test DiatomiteProbe class."""

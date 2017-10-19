@@ -35,6 +35,18 @@ class TestFrequencies(object):
     listener_freq_a = 97.8e6
     receiver_freq = 97e6
     
+    _radio_source._radio_init()
+
+    
+    def start_source(self):
+        try:
+            self._radio_source.start()
+        except Exception, excpt:
+            msg = ('Failed starting source{c},'
+                   ' with {e}').format(c=type(self._radio_source), e=excpt)
+            logging.error(msg)
+            raise
+
     def test_listener_freq_a(self):
         """Test listener_freq_a"""
 
@@ -55,20 +67,14 @@ class TestFrequencies(object):
         freq_listener.set_bandwidth(bandwidth_to_set)
         freq_listener.set_create_fft_tap(True)
         
-        self._radio_source._radio_init()
-
         self._radio_source.add_frequency_listener(freq_listener)
         
 
         print 'Listeners:{l}'.format(l=self._radio_source.get_listener_id_list())
 
-        try:
-            self._radio_source.start_frequency_listeners()
-        except Exception, excpt:
-            msg = ('Failed starting frequency listeners for Class {c},'
-                   ' with {e}').format(c=type(self._radio_source), e=excpt)
 
 
 test = TestFrequencies()
 
 test.test_listener_freq_a()
+test.start_source()

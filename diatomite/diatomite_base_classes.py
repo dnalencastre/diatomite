@@ -65,6 +65,9 @@ class FreqListenerListIdNotUniqueError(Exception):
     FreqlistenerList."""
     pass
 
+class FreqListenerError(Exception):
+    """Raised when a FreqListener encounters an error."""
+    pass
 
 class RadioSpectrum(object):
     """Defines limits for the radio spectrum."""
@@ -306,6 +309,10 @@ class FreqListener(object):
         self._tap_directory = os.getcwd()
         
         self._fft_tap = None
+        
+        self._status = 'PRE_INIT'
+        
+        self._probe_stop = threading.Event()
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -562,10 +569,10 @@ class FreqListener(object):
         log.debug(msg)
 
 
-    def _retrieve_fft(self):
+    def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
         
-        while True:
+        while not stop_event.is_set():
             
             #TODO: fft value processing should go here
             
@@ -582,7 +589,7 @@ class FreqListener(object):
                 msg = 'updating data tap'
                 log.debug(msg)
             
-            time.sleep(1.0 / self._probe_poll_rate)
+            stop_event.wait(1.0 / self._probe_poll_rate)
 
     def _setup_fft_tap(self):
         """Setup a tap to provide live fft values.
@@ -609,6 +616,7 @@ class FreqListener(object):
         Will remove the tap file from the file system"""
         
         # stop the thread
+        
         self._fft_tap.stop()
 
     def _setup_signal_probe(self):
@@ -637,14 +645,21 @@ class FreqListener(object):
           
         # set the fft retrieval on it's own thread
         self._retrieve_fft_thread = threading.Thread(target=self._retrieve_fft,
-                                                     name = self.get_id())
+                                                     name = self.get_id(),
+                                                     args=(self._probe_stop,))
         self._retrieve_fft_thread.daemon = True
         self._retrieve_fft_thread.start()
         
         msg = 'Signal probe setup done.'
         log.debug(msg)
     
-    def start_listener(self):
+    def _stop_signal_probe(self):
+        """Stop the fft data probe"""
+
+        # send the stop event to the thread
+        self._probe_stop.set()
+    
+    def start(self):
         """Start the frequency listener."""
 
         # configure frequency translator
@@ -694,6 +709,40 @@ class FreqListener(object):
             log.debug(msg)
             raise Exception(msg)
         
+        self._status = 'RUNNING'
+        
+    def stop(self):
+        """Stop the frequency listener """
+        
+        msg = 'stopping frequency listener {id}'.format(id=self.get_id())
+        log.debug(msg)
+        
+        if self._status == 'RUNNING':
+ 
+ 
+            if self._create_fft_tap:
+            # stop the fft tap
+                try:
+                    self._teardown_fft_tap()
+                except Exception, exc:
+                    msg = ('Failed tearing down fft with --<>:'
+                           ' {m}').format(m=str(exc))
+                    raise Exception(msg)
+        
+            # stop fft signal probe
+            try:
+                self._stop_signal_probe()
+            except Exception, exc:
+                msg = ('Failed stopping signal probe with:'
+                       ' {m}').format(m=str(exc))
+                raise Exception(msg)   
+
+        else:
+            msg = ("Will not stop listener, as status is"
+                   " {s}").format(s=self._status)
+            log.error(msg)
+            msg = 'not yet done'
+            raise FreqListenerError(msg)
 
    
         #TODO: add the fft data retrieval
@@ -938,27 +987,69 @@ class RadioSource(object):
     def start(self):
         """Start the radio source."""
         
-        pass
         # TODO: handle the lifecycle of the source
-    
-    
-    def start_frequency_listeners(self):
-        """Start individual frequency listeners"""
-
-
-        #iterate through the listeners and start them
-        for freq_listener in self._listener_list:
-            freq_listener.start_listener()
-            msg = ('started frequency listener '
-                   '{fid}').format(fid=freq_listener.get_id())
-            log.debug(msg)
+        stop = False
+        
+        msg = 'starting frequency listeners'
+        log.debug(msg)
+        
+        self.start_frequency_listeners()
         
         # wait for the end of the top block
         self._gr_top_block.start()
 
         self._gr_top_block.wait()
 
-        self._gr_top_block.stop()
+        self._gr_top_block.stop()        
+
+        
+        if stop:
+            self.stop_frequency_listeners()
+            
+    def stop(self):
+        """Stop the radio listener"""
+        
+        msg = 'Not yet done'
+        raise Exception(msg)
+    
+    def stop_frequency_listeners(self):
+        """Stop  individual frequency listeners."""
+        
+        msg = ('Stopping all frequency listeners for'
+               'source {s}').format(s=self.get_id())
+    
+        #iterate through the listeners and start them
+        for freq_listener in self._listener_list:
+            
+            msg = '--->type freq listner:{t}'.format(t=type(freq_listener))
+            print msg
+            log.debug(msg)
+            try:
+                freq_listener.stop()
+            except Exception, exc:
+                msg = ('Failed stopping frequency listener with:'
+                       ' {m}').format(m=str(exc))
+                log.debug(msg)
+                raise
+                
+            msg = ('stopped frequency listener '
+                   '{fid}').format(fid=freq_listener.get_id())
+            log.debug(msg) 
+    
+    def start_frequency_listeners(self):
+        """Start individual frequency listeners"""
+
+        msg = ('Starting all frequency listeners for'
+               'source {s}').format(s=self.get_id())
+
+        #iterate through the listeners and start them
+        for freq_listener in self._listener_list:
+            freq_listener.start()
+            msg = ('started frequency listener '
+                   '{fid}').format(fid=freq_listener.get_id())
+            log.debug(msg)
+        
+
 
 class RTL2838R820T2RadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2838 receiver
