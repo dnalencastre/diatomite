@@ -22,6 +22,7 @@
 import logging as log
 import time
 import datetime
+from multiprocessing import Process, Pipe
 from string import ascii_letters, digits
 from gnuradio import gr
 from gnuradio import blocks
@@ -982,29 +983,63 @@ class RadioSource(object):
             msg = 'Radio Source not started'
             raise RadioSourceRadioFailureError(msg)
     
-    def start(self):
-        """Start the radio source."""
-        
+    def _run_source_subprocess(self, input_conn, output_conn):
+        """start the subprocess for the source."""
         # TODO: handle the lifecycle of the source
+        
+        msg = 'radio source subprocess for {id} starting.'.format(id=self.get_id())
+        log.debug(msg)
+        output_conn.send(msg)
+        
         stop = False
         
         msg = 'starting frequency listeners'
         log.debug(msg)
-        
+                
         self.start_frequency_listeners()
         
         # wait for the end of the top block
         self._gr_top_block.start()
-
-#         self._gr_top_block.wait()
+        
+        # wait for the stop command
+        while not stop:
+            input_cmd = input_conn.recv()
+            
+            if input_cmd == 'STOP':
+                stop = True
         
         if stop:
             self.stop_frequency_listeners()
+            self._gr_top_block.stop()
+    
+        msg = 'radio source subprocess for {id} exiting.'.format(id=self.get_id())
+        log.debug(msg)
+        output_conn.send(msg)
+    
+    def start(self):
+        """Start the radio source."""
+        
+        # setup and start the subprocess for this source
+
+        self._subprocess_in, self._subprocess_out  = Pipe()
+        self._source_subprocess = Process(target=self._run_source_subprocess,
+                                          args=(self._subprocess_out,
+                                                self._subprocess_in))
+        try:
+            self._source_subprocess.start()
+        except Exception, exc:
+            msg = ('Failed starting the source subprocesses with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise
+            
             
     def stop(self):
         """Stop the radio listener"""
-
-        self._gr_top_block.stop()
+        msg = 'Stopping radio source {id}'.format(id=self.get_id())
+        log.debug(msg)    
+    
+        self._subprocess_in.send('STOP')
     
     def stop_frequency_listeners(self):
         """Stop  individual frequency listeners."""
@@ -1201,4 +1236,7 @@ class DiatomiteProbe(object):
                " list").format(i=radio_source)
         log.debug(msg)
 
-    #TODO: add method to start radio sources
+    #TODO: add method to start all radio sources
+    
+    #TODO: add method to stop all radio sources
+

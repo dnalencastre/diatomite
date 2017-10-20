@@ -88,6 +88,5 @@ test = TestFrequencies()
 test.test_listener_freq_a()
 test.start_source()
 
-# not yet wworking...
 time.sleep(5)
 test.stop_source()
