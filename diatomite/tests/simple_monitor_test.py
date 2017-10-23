@@ -33,9 +33,11 @@ class TestFrequencies(object):
     rs_id = 'testRTL2838R820T2RadioSource'
     _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
     
-    listener_freq_a = 97.8e6
-    receiver_freq = 97e6
-    
+#     listener_freq_a = 97.8e6
+#     receiver_freq = 97e6
+    listener_freq_a = 89.5e6
+    receiver_freq = 89.3e6
+       
     _radio_source._radio_init()
 
     
@@ -83,10 +85,12 @@ class TestFrequencies(object):
             logging.error(msg)
             raise
 
-test = TestFrequencies()
 
-test.test_listener_freq_a()
-test.start_source()
-
-time.sleep(90)
-test.stop_source()
+if __name__ == "__main__":
+    test = TestFrequencies()
+    
+    test.test_listener_freq_a()
+    test.start_source()
+    
+#     time.sleep(90)
+#     test.stop_source()

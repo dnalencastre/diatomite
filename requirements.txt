@@ -1,1 +1,3 @@
 Requires gnuradio >= 3.7.10
+
+gnuplot-py

@@ -577,6 +577,10 @@ class FreqListener(object):
     def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
         
+        low_freq = self.get_lower_frequency()
+        high_freq = self.get_upper_frequency()
+        bw = self.get_bandwidth()
+        
         while not stop_event.is_set():
             
             #TODO: fft value processing should go here
@@ -587,10 +591,13 @@ class FreqListener(object):
             
             # update taps
             if self._create_fft_tap:
-                tap_value = '{t};{v}\n'.format(t=current_time, v=val)
+                tap_value = '{t};{bw};{lf};{hf};{v}\n'.format(t=current_time,
+                                                              v=val, bw=bw,
+                                                              lf=low_freq,
+                                                              hf=high_freq)
 
                 self._fft_tap.update_value(tap_value)
-                
+
                 # TODO: re-activate
 #                 msg = 'updating data tap'
 #                 log.debug(msg)
