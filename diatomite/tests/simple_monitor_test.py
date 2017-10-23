@@ -78,7 +78,7 @@ class TestFrequencies(object):
         try:
             self._radio_source.stop()
         except Exception, excpt:
-            msg = ('Failed stoppin source{c},'
+            msg = ('Failed stopping source {c},'
                    ' with {e}').format(c=type(self._radio_source), e=excpt)
             logging.error(msg)
             raise
@@ -88,5 +88,5 @@ test = TestFrequencies()
 test.test_listener_freq_a()
 test.start_source()
 
-time.sleep(5)
+time.sleep(90)
 test.stop_source()

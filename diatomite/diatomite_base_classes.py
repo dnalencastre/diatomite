@@ -215,9 +215,9 @@ class DataTap(object):
 
             output = '{v}\n'.format(v=self._get_value())
             
-            with open(self._tap_file_path, 'w') as f_handle:
+            with open(self._tap_file_path, 'w', 0) as f_handle:
                 msg = ('writing on tap {t}').format(t=self._get_id())
-                log.debug(msg)                
+                log.debug(msg)
                 
                 try:
                     f_handle.writelines(output)
@@ -227,11 +227,13 @@ class DataTap(object):
                                ' {m}').format(t=self._get_id(), m=str(exc))
                         log.debug(msg)
                         msg = sys.exc_info()
+                        msg = ('Broken pipe on tap {t}').format(t=self._get_id())           
                         log.warning(msg)
                     else:
+                        msg = ('Error writing on on tap {t} with:'
+                           ' {m}').format(t=self._get_id(), m=str(exc))
+                        log.error(msg)
                         raise
-            # TODO: find how to recover from broken pipe
-
 
     def update_value(self, value):
         """Updates the values present on the fft tap.
@@ -589,8 +591,9 @@ class FreqListener(object):
 
                 self._fft_tap.update_value(tap_value)
                 
-                msg = 'updating data tap'
-                log.debug(msg)
+                # TODO: re-activate
+#                 msg = 'updating data tap'
+#                 log.debug(msg)
             
             stop_event.wait(1.0 / self._probe_poll_rate)
 
