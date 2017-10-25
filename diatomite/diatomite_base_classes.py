@@ -34,6 +34,7 @@ import os
 import sys
 import exceptions
 import errno
+import logging
 
 class FreqListenerInvalidModulation(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
@@ -131,14 +132,15 @@ class DataTap(object):
         except exceptions.OSError, exc:
             
             if exc.errno == errno.EEXIST:
-                msg = ('File already exists , Failed creating named pipe for fft tap with:'
-                       ' {m}').format(m=str(exc))
+                msg = ('Data Tap {id}, File already exists , Failed creating'
+                       ' named pipe for fft tap'
+                       ' with: {m}').format(id=self._get_id(), m=str(exc))
                 log.error(msg)
                 msg = sys.exc_info()
                 log.warning(msg)
         except Exception, exc:
-            msg = ('Failed creating named pipe for fft tap with:'
-                   ' {m}').format(m=str(exc))
+            msg = ('Data Tap {id}, Failed creating named pipe for fft tap'
+                   ' with: {m}').format(id=self._get_id(), m=str(exc))
             log.error(msg)
             msg = sys.exc_info()
             log.error(msg)
@@ -152,7 +154,7 @@ class DataTap(object):
         self._update_tap_thread.daemon = True
         self._update_tap_thread.start()
         
-        msg = 'FFT tap setup done.'
+        msg = 'Data Tap {id} tap setup done.'.format(id=self._get_id())
         log.debug(msg)
 
     def _set_file(self):
@@ -216,8 +218,9 @@ class DataTap(object):
             output = '{v}\n'.format(v=self._get_value())
             
             with open(self._tap_file_path, 'w', 0) as f_handle:
-                msg = ('writing on tap {t}').format(t=self._get_id())
-                log.debug(msg)
+                # TODO: re-activate debug log
+#                 msg = ('writing on tap {t}').format(t=self._get_id())
+#                 log.debug(msg)
                 
                 try:
                     f_handle.writelines(output)
@@ -462,8 +465,8 @@ class FreqListener(object):
         else:
             msg = 'create_fft_tap must be a boolean'
             raise TypeError(msg)
-        
-        msg = 'FFT tap creation set to {v}'.format(v=create_fft_tap)
+        msg = ('Listener {id} FFT tap creation set to'
+               ' {v}').format(v=create_fft_tap,id=self.get_id())
         log.debug(msg)
 
     def get_id(self):
@@ -552,12 +555,13 @@ class FreqListener(object):
                 average=self._fft_average
             )
         except Exception, exc:
-            msg = ('Failed setting up fft with'
-                   ' {m}').format(m=str(exc))
+            msg = ('Failed setting up fft for listener {id} with'
+                   ' {m}').format(id=self.get_id(), m=str(exc))
             log.debug(msg)
             raise Exception(msg)
-        
-        msg = 'FFT set up completed.'
+
+        msg = ('Listener {id} FFT set up '
+               'completed.').format(id=self.get_id())
         log.debug(msg)
         
         # connect the fft to the freq translation filter
@@ -621,7 +625,7 @@ class FreqListener(object):
             log.error(msg)
             raise
 
-        msg = 'FFT tap setup done.'
+        msg = 'Listener {id} FFT tap setup done.'.format(id=self.get_id())
         log.debug(msg)
 
     def _teardown_fft_tap(self):
@@ -653,7 +657,8 @@ class FreqListener(object):
             log.debug(msg)
             raise Exception(msg)
  
-        msg = 'Launching fft data retrieval thread.'
+        msg = ('Listener {id}, Launching fft data retrieval'
+               ' thread.').format(id=self.get_id())
         log.debug(msg)
           
         # set the fft retrieval on it's own thread
@@ -663,7 +668,8 @@ class FreqListener(object):
         self._retrieve_fft_thread.daemon = True
         self._retrieve_fft_thread.start()
         
-        msg = 'Signal probe setup done.'
+        msg = ('Listener {id} signal probe setup'
+               ' done.').format(id=self.get_id())
         log.debug(msg)
     
     def _stop_signal_probe(self):
@@ -852,6 +858,26 @@ class RadioSource(object):
 
         self._listener_list = FreqListenerList()
 
+        self._create_fft_tap = False
+        # write the taps to the current directory
+        self._tap_directory = os.getcwd()
+        self._fft_tap = None
+        
+        self._log_fft = None
+        self._fft_size = 1024
+        self._fft_ref_scale = 2
+        self._fft_frame_rate = 30
+        self._fft_avg_alpha = 1.0
+        self._fft_average = False
+        
+        # probe poll rate in hz
+        self._probe_poll_rate = 10
+        self._fft_signal_level = None
+        
+        self._status = 'PRE_INIT'
+        
+        self._probe_stop = threading.Event()
+
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw,
@@ -867,6 +893,143 @@ class RadioSource(object):
         # specific radio initialization to be added on this method on derived
         # classes
         self._radio_state = RadioReceiverSate.OK
+    
+    def _setup_rf_fft(self):
+        """Setup an fft to check the RF status."""
+        
+        # start the fft
+        try:
+            self._log_fft  = logpwrfft.logpwrfft_c(
+                sample_rate=self._cap_bw,
+                fft_size=self._fft_size,
+                ref_scale=self._fft_ref_scale,
+                frame_rate=self._fft_frame_rate,
+                avg_alpha=self._fft_avg_alpha,
+                average=self._fft_average
+            )
+        except Exception, exc:
+            msg = ('Failed setting up fft with'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+        
+        msg = ('Radio source {id} FFT set up '
+               'completed.').format(id=self.get_id())
+        log.debug(msg)
+
+        
+        # connect the fft to the freq translation filter
+        try:
+            self._gr_top_block.connect(self.get_source_block(), 
+                                       self._log_fft)
+        except Exception, exc:
+            msg = ('Failed to connect the fft to the source, with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+
+        msg = 'FFT connected to Frequency translation.'
+        log.debug(msg)        
+
+    def _retrieve_fft(self, stop_event):
+        """Retrieve fft values"""
+        
+        low_freq = self.get_lower_frequency()
+        high_freq = self.get_upper_frequency()
+        bw = self.get_bandwidth_capability()
+        
+        while not stop_event.is_set():
+            
+            #TODO: fft value processing should go here
+            
+            current_time = datetime.datetime.utcnow().isoformat()
+           
+            val = self._fft_signal_probe.level()
+            
+            # update taps
+            if self._create_fft_tap:
+                tap_value = '{t};{bw};{lf};{hf};{v}\n'.format(t=current_time,
+                                                              v=val, bw=bw,
+                                                              lf=low_freq,
+                                                              hf=high_freq)
+
+                self._fft_tap.update_value(tap_value)
+
+                # TODO: re-activate
+#                 msg = 'updating data tap'
+#                 log.debug(msg)
+            
+            stop_event.wait(1.0 / self._probe_poll_rate)
+
+    def _setup_fft_tap(self):
+        """Setup a tap to provide live fft values.
+        Create a named pipe containing the latest set of fft values.
+        Will output to a previously created named pipe/file.
+        If an error occurs while creating the named pipe (other than that the
+        file already exists), tap output thread will not be started."""
+
+        msg = 'Setting up fft tap.'
+        log.debug(msg)
+        
+        try:
+            self._fft_tap = DataTap(self.get_id())
+        except exceptions, exc:
+            msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
+            log.error(msg)
+            raise
+
+        msg = 'Radio Source {id} FFT tap setup done.'.format(id=self.get_id())
+        log.debug(msg)
+        
+    def _teardown_fft_tap(self):
+        """Cleanup the live fft values tap.
+        Will remove the tap file from the file system"""
+        
+        # stop the thread
+        
+        self._fft_tap.stop()
+        
+    def _setup_signal_probe(self):
+        """Setup probe to retrieve the fft data"""
+        
+        try:
+            self._fft_signal_probe = blocks.probe_signal_vf(self._fft_size)
+        except Exception, exc:
+            msg = ('Failed to create fft probe, with:'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+   
+        # connect the signal probe to the fft
+        try:
+            self._gr_top_block.connect(self._log_fft, 
+                                       self._fft_signal_probe)                 
+        except Exception, exc:
+            msg = ('Failed to connect the fft to radio source {id}, with:'
+                   ' {m}').format(id=self.get_id(), m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+ 
+        msg = ('Radio Source {id}, Launching fft data retrieval'
+               ' thread.').format(id=self.get_id())
+        log.debug(msg)
+          
+        # set the fft retrieval on it's own thread
+        self._retrieve_fft_thread = threading.Thread(target=self._retrieve_fft,
+                                                     name = self.get_id(),
+                                                     args=(self._probe_stop,))
+        self._retrieve_fft_thread.daemon = True
+        self._retrieve_fft_thread.start()
+        
+        msg = ('Radio Source {id} signal probe setup'
+               ' done.').format(id=self.get_id())
+        log.debug(msg)
+
+    def _stop_signal_probe(self):
+        """Stop the fft data probe"""
+
+        # send the stop event to the thread
+        self._probe_stop.set()
 
     def set_id(self, radio_source_id):
         """Sets the radio source's  id.
@@ -888,28 +1051,52 @@ class RadioSource(object):
             msg = 'Frequency id contains contains unacceptable characters'
             log.error(msg)
             raise BadIdError(msg)
+
+    def set_create_fft_tap(self,create_fft_tap):
+        """Inform if taps are to be created
+        create_fft_tap - if an fft tap is to be created True or False"""
         
+        if isinstance(create_fft_tap, bool):
+            self._create_fft_tap = create_fft_tap
+        else:
+            msg = 'create_fft_tap must be a boolean'
+            raise TypeError(msg)
+        
+        msg = ('Radio Source {id} FFT tap creation set to'
+               ' {v}').format(v=create_fft_tap,id=self.get_id())
+        log.debug(msg)
+
+
     def set_frequency(self, frequency):
         """Set the source's center frequency
         frequency -- frequency in Hz (integer)"""
 
-        src_lower_freq = self.get_lower_frequency()
-        src_upper_freq = self.get_upper_frequency()
+        src_minimum_freq = self.get_minimum_frequency()
+        src_maximum_freq = self.get_maximum_frequency()
 
         if not float(frequency).is_integer():
             msg = 'Frequency is not a whole number'
             log.error(msg)
             raise ValueError(msg)
-        elif frequency < src_lower_freq or frequency > src_upper_freq:
+        elif frequency < src_minimum_freq or frequency > src_maximum_freq:
             msg = ('Frequency must be above {fl} hz '
-                   'and below {fu} hz').format(fl=src_lower_freq,
-                                               fu=src_upper_freq)
+                   'and below {fu} hz').format(fl=src_minimum_freq,
+                                               fu=src_maximum_freq)
             log.error(msg)
             raise ValueError(msg)
-        else:
-            self._frequency = int(frequency)
-            msg = 'Frequency set to {i}'.format(i=frequency)
-            log.debug(msg)
+        
+        self._center_freq = int(frequency)
+        msg = 'Frequency set to {i}'.format(i=frequency)
+        log.debug(msg)
+        
+        
+        msg = ('//.//////Receiver {id} set center frequency at '
+               '{f}').format(id=self.get_id(), f=self._center_freq)
+        logging.debug(msg)
+
+        msg = ('//...../Receiver {id} set center frequency at '
+               '{f}').format(id=self.get_id(), f=self.get_center_frequency())
+        logging.debug(msg)
 
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
@@ -926,7 +1113,7 @@ class RadioSource(object):
         if listener.get_lower_frequency() < self._cap_freq_min:
             msg = ("The listener's lower frequency ({lf}) is below the "
                    "radio source's minimum frequency"
-                   " ({mf})").format(lf=listener.get_upper_frequency(),
+                   " ({mf})").format(lf=listener.get_lower_frequency(),
                                      mf=self._cap_freq_min)
             log.error(msg)
             raise RadioSourceFrequencyOutOfBounds(msg)
@@ -947,17 +1134,33 @@ class RadioSource(object):
         msg = 'FreqListener {i} added to list'.format(i=listener)
         log.debug(msg)
 
+    def get_create_fft_tap(self):
+        """Get if the source is to create an fft tap."""
+        return self._create_fft_tap
+
     def get_id(self):
         """Returns the radio source's id."""
         return self._id
 
-    def get_upper_frequency(self):
-        """Return the upper frequency on this radio source."""
+    def get_maximum_frequency(self):
+        """Return the maximum frequency on this radio source."""
         return self._cap_freq_max
 
-    def get_lower_frequency(self):
-        """Return the lower frequency on this radio source."""
+    def get_minimum_frequency(self):
+        """Return the minimum frequency on this radio source."""
         return self._cap_freq_min
+
+    def get_upper_frequency(self):
+        """Computes and retrieves the upper frequency of the source,
+        taking into account the frequency and the bandwidth."""
+
+        return self._center_freq + (self._cap_bw/2)
+
+    def get_lower_frequency(self):
+        """Computes and retrieves the lower frequency of the source,
+        taking into account the frequency and the bandwidth."""
+
+        return self._center_freq - (self._cap_bw/2)
 
     def get_bandwidth_capability(self):
         """Return the bandwidth capability for this radio source."""
@@ -996,6 +1199,51 @@ class RadioSource(object):
     def _run_source_subprocess(self, input_conn, output_conn):
         """start the subprocess for the source."""
         # TODO: handle the lifecycle of the source
+        
+        # setup fft and connect it to the source
+        try:
+            self._setup_rf_fft()
+        except Exception, exc:
+            msg = ('Failed to setup RF FFT'
+                   'with {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+        msg = ('Radio Source {id}, fft setup '
+               'finished').format(id=self.get_id())
+        log.debug(msg)
+
+        # handle the fft tap creation
+        # thread for data tap must be present before
+        # the thread that starts the signal probe
+        if self._create_fft_tap:
+            try:
+                self._setup_fft_tap()
+            except Exception, exc:
+                msg = ('Failed to setup fft TAP'
+                       'with {m}').format(m=str(exc))
+                log.debug(msg)
+                raise Exception(msg)     
+            
+            msg = ('Radio Source {id}, fft TAP setup '
+                   'finished').format(id=self.get_id())
+            log.debug(msg)
+        else:
+            msg = ('Radio Source {id}, fft TAP not '
+                   'requested').format(id=self.get_id())
+            log.debug(msg)          
+
+        try:
+            self._setup_signal_probe()
+        except Exception, exc:
+            msg = ('Failed to setup signal probe'
+                   'with {m}').format(m=str(exc))
+            log.debug(msg)
+            raise Exception(msg)
+        
+        msg = ('Radio Source {id}, fft probe setup '
+               'finished').format(id=self.get_id())
+        log.debug(msg)       
+        
         
         msg = 'radio source subprocess for {id} starting.'.format(id=self.get_id())
         log.debug(msg)
@@ -1096,6 +1344,9 @@ class RTL2838R820T2RadioSource(RadioSource):
         radio_source_id -- the frequency listener id.
                         Acceptable characters: ASCII characters, numbers,
                         underscore, dash."""
+                        
+        super(RTL2838R820T2RadioSource, self).__init__(radio_source_id)
+                        
         self._type = 'RTL2838_R820T2'
         self._source_args = "numchan=" + str(1) + " " + ''
         self._cap_bw = 2400000
@@ -1103,8 +1354,6 @@ class RTL2838R820T2RadioSource(RadioSource):
         self._cap_freq_max = 1750000000
         self._center_freq = self._cap_freq_max - ((self._cap_freq_max
                                                    - self._cap_freq_min) / 2)
-        self.set_id(radio_source_id)
-
         self._freq_corr = 0
         self._dc_offset_mode = 0
         self._iq_balance_mode = 0

@@ -36,12 +36,22 @@ class TestFrequencies(object):
 #     listener_freq_a = 97.8e6
 #     receiver_freq = 97e6
     listener_freq_a = 89.5e6
-    receiver_freq = 89.3e6
+#     receiver_freq = 89.3e6
+    receiver_freq = listener_freq_a
+
        
     _radio_source._radio_init()
 
     
     def start_source(self):
+        self._radio_source.set_create_fft_tap(True)
+        print 'A---->create fft tap:{v}'.format(v=self._radio_source.get_create_fft_tap())
+
+
+        # define the center frequency midway from upper and lower
+        
+        self._radio_source.set_frequency(self.receiver_freq)
+        
         try:
             self._radio_source.start()
         except Exception, excpt:
@@ -49,31 +59,33 @@ class TestFrequencies(object):
                    ' with {e}').format(c=type(self._radio_source), e=excpt)
             logging.error(msg)
             raise
-
+        
+        
     def test_listener_freq_a(self):
         """Test listener_freq_a"""
 
         # set the bandwidth
         bwidth = 200e3
 
-        # define the center frequency midway from upper and lower
-        
-        self._radio_source.set_frequency(self.receiver_freq)
+
 
         # ensure the bandwidth fits the radio
         bandwidth_to_set = bwidth/2
 
         # add a new frequency listener
         id_to_set = 'listener_freq_a'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
-        freq_listener.set_frequency(self.listener_freq_a)
-        freq_listener.set_bandwidth(bandwidth_to_set)
-        freq_listener.set_create_fft_tap(True)
+        self._freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        self._freq_listener.set_frequency(self.listener_freq_a)
+        self._freq_listener.set_bandwidth(bandwidth_to_set)
+        self._freq_listener.set_create_fft_tap(True)
         
-        self._radio_source.add_frequency_listener(freq_listener)
+        self._radio_source.add_frequency_listener(self._freq_listener)
         
 
         print 'Listeners:{l}'.format(l=self._radio_source.get_listener_id_list())
+
+        print 'B---->create fft tap:{v}'.format(v=self._radio_source.get_create_fft_tap())
+
 
 
     def stop_source(self):
@@ -85,6 +97,25 @@ class TestFrequencies(object):
             logging.error(msg)
             raise
 
+    def get_data(self):
+        
+        rcf = float(self._radio_source.get_center_frequency())/1000/1000
+        
+        rlf = float(self._radio_source.get_lower_frequency())/1000/1000
+        rhf = float(self._radio_source.get_upper_frequency())/1000/1000
+        
+        lcf = float(self._freq_listener.get_frequency())/1000/1000
+        llf = float(self._freq_listener.get_lower_frequency())/1000/1000
+        lhf = float(self._freq_listener.get_upper_frequency())/1000/1000
+        
+        print '-----------------------------------------------'
+        print ('Receiver--> center freq: {rcf}, lower freq:{rlf}, '
+               'upper freq:{rhf}').format(rcf=rcf, rlf=rlf, rhf=rhf)
+        
+        print ('Listener--> center freq: {lcf}, lower freq:{llf}, '
+               'upper freq:{lhf}').format(lcf=lcf, llf=llf, lhf=lhf)
+        print '-----------------------------------------------'
+        
 
 if __name__ == "__main__":
     test = TestFrequencies()
@@ -92,5 +123,7 @@ if __name__ == "__main__":
     test.test_listener_freq_a()
     test.start_source()
     
-#     time.sleep(90)
+    test.get_data()
+    time.sleep(15)
+
 #     test.stop_source()
