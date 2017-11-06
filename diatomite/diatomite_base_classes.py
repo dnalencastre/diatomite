@@ -591,7 +591,10 @@ class FreqListener(object):
             
             current_time = datetime.datetime.utcnow().isoformat()
            
-            val = self._fft_signal_probe.level()
+            # logpower fft swaps the lower and upper halfs of 
+            # the spectrum, this fixes it
+            vraw = self._fft_signal_probe.level()
+            val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]      
             
             # update taps
             if self._create_fft_tap:
@@ -944,7 +947,10 @@ class RadioSource(object):
             
             current_time = datetime.datetime.utcnow().isoformat()
            
-            val = self._fft_signal_probe.level()
+            # logpower fft swaps the lower and upper halfs
+            # of the spectrum, this fixes it
+            vraw = self._fft_signal_probe.level()
+            val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]
             
             # update taps
             if self._create_fft_tap:
@@ -1086,10 +1092,12 @@ class RadioSource(object):
             raise ValueError(msg)
         
         self._center_freq = int(frequency)
-        msg = 'Frequency set to {i}'.format(i=frequency)
+
+        # tune the frequency
+        self._radio_source.set_center_freq(frequency, 0)
+        msg = 'Radio source frequency set and tuned to {i}'.format(i=frequency)
         log.debug(msg)
-        
-        
+    
         msg = ('//.//////Receiver {id} set center frequency at '
                '{f}').format(id=self.get_id(), f=self._center_freq)
         logging.debug(msg)

@@ -36,8 +36,8 @@ class TestFrequencies(object):
 #     listener_freq_a = 97.8e6
 #     receiver_freq = 97e6
     listener_freq_a = 89.5e6
-#     receiver_freq = 89.3e6
-    receiver_freq = listener_freq_a
+    receiver_freq = 89.3e6
+#     receiver_freq = listener_freq_a
 
        
     _radio_source._radio_init()

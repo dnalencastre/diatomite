@@ -56,26 +56,28 @@ def tap_graph_main(args):
                         
                         freq_step = float((float(hf)-float(lf)) / fft_values_len)
 
-                        print ('lf:{lf}, hf:{hf}, fs:{fs}').format(lf=low_freq, hf=high_freq, fs=freq_step)
 
                         x = numpy.arange (start=low_freq, stop=high_freq, step=freq_step, dtype='float_')
-
-                        print 'x:{x}, s:{s}'.format(x=x, s=len(x))
 
                         y_values = fft_values
                         x_values = x
                         
 #                         slice = 
-                        g.set_range('yrange', (-110, -20))
-                        g.set_range('xrange', (89490000, 89510000))
+                        g.set_range('yrange', (-110, 0))
+                        g('set format x "%.3s%c"')
+#                         g.set_range('xrange', (89490000, 89510000))
     
                         d1 = Gnuplot.Data (x_values , y_values, title=graph_title, with_="lines")
                         term_width = 200
-                        term_height = 60
+                        term_height = 40
                         term_set = "set terminal dumb feed size {tw}, {th} aspect 2, 1".format(tw=term_width, th=term_height)
                         
                         g(term_set)
                         g.plot(d1)
+                        
+                        
+                        print ('lower freqyency :{lf}, upper frequency:{hf}, Bucket size:{fs}').format(lf=low_freq, hf=high_freq, fs=freq_step)
+
 
 if __name__ == "__main__":
 
