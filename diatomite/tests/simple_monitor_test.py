@@ -36,21 +36,23 @@ class TestFrequencies(object):
 #     listener_freq_a = 97.8e6
 #     receiver_freq = 97e6
     listener_freq_a = 89.5e6
-    receiver_freq = 89.3e6
+#     receiver_freq = 89.3e6
+    receiver_freq = 90e6
 #     receiver_freq = listener_freq_a
 
        
     _radio_source._radio_init()
 
-    
-    def start_source(self):
+    def prep_source(self):
         self._radio_source.set_create_fft_tap(True)
         print 'A---->create fft tap:{v}'.format(v=self._radio_source.get_create_fft_tap())
 
 
         # define the center frequency midway from upper and lower
         
-        self._radio_source.set_frequency(self.receiver_freq)
+        self._radio_source.set_frequency(self.receiver_freq) 
+    def start_source(self):
+
         
         try:
             self._radio_source.start()
@@ -120,9 +122,13 @@ class TestFrequencies(object):
 if __name__ == "__main__":
     test = TestFrequencies()
     
+
+    test.prep_source()
     test.test_listener_freq_a()
     test.start_source()
-    
+
+#     test.test_listener_freq_a()
+
     test.get_data()
     time.sleep(15)
 
