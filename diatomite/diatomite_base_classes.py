@@ -36,6 +36,13 @@ import exceptions
 import errno
 import logging
 
+# this is used for fm demod and sound output. used for development
+from gnuradio import audio
+from gnuradio.filter import firdes
+from gnuradio import analog
+from gnuradio import filter
+
+
 class FreqListenerInvalidModulation(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
@@ -896,7 +903,7 @@ class RadioSource(object):
         # specific radio initialization to be added on this method on derived
         # classes
         self._radio_state = RadioReceiverSate.OK
-    
+
     def _setup_rf_fft(self):
         """Setup an fft to check the RF status."""
         
@@ -1106,6 +1113,8 @@ class RadioSource(object):
                '{f}').format(id=self.get_id(), f=self.get_center_frequency())
         logging.debug(msg)
 
+        # TODO:  iterate the list of listeners and re-set the offset
+
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
         listener -- FreqListener"""
@@ -1207,6 +1216,14 @@ class RadioSource(object):
     def _run_source_subprocess(self, input_conn, output_conn):
         """start the subprocess for the source."""
         # TODO: handle the lifecycle of the source
+        
+        
+        
+        # for development purposes, output sound
+        self.start_audio_sink()
+        self.do_center_freq_snd_output()
+#         self._fm_demod()
+        
         
         # setup fft and connect it to the source
         try:
@@ -1341,7 +1358,112 @@ class RadioSource(object):
                    '{fid}').format(fid=freq_listener.get_id())
             log.debug(msg)
         
+    def start_audio_sink(self):
+        """Start an audio sink for this source."""
+        
+        samp_rate = 48e3
+        
+        self._audio_sink = audio.sink(int(samp_rate), '', True)
+        self._audio_sink_connection_qty = 0
 
+        msg = ('started audio sink with sample rate of '
+               '{sr}').format(sr=samp_rate)
+        log.debug(msg)
+     
+    def get_audio_sink(self):
+        
+        return self._audio_sink
+        
+    def get_audio_sink_connection_qty(self):
+        """Get the number of connections to the audio sink"""
+        
+        return self._audio_sink_connection_qty
+    
+    def add_audio_sink_connection(self):
+        """Get an audio sink connection handler"""
+        
+        self._audio_sink_connection_qty += 1
+        
+        # first connection is 0
+        return self._audio_sink_connection_qty - 1
+
+    def remove_audio_sink_connection(self):
+        """Remove an audio sink connection handler"""
+    
+        if self._audio_sink_connection_qty > 0:
+            self._audio_sink_connection_qty -= 1
+        else:
+            msg = 'Audio sink connection quantity is already at 0'
+            log.error(msg)
+            raise ValueError(msg)
+    
+    def do_center_freq_snd_output(self):
+        """Configure for sound output of the center frequency""" 
+
+        msg = '------->>>>>> start audio sink'
+        log.debug(msg)
+        self.start_audio_sink()
+         
+        msg = '------->>>>>> start fm demod'
+        log.debug(msg)
+         
+        self._fm_demod()
+ 
+        msg = '------->>>>>> startED fm demod'
+        log.debug(msg)      
+       
+    
+    def _fm_demod(self):
+        """Do an FM demodulation for the center frequency on this source"""
+        
+        samp_rate = 500000
+        
+        self.rational_resampler_a = filter.rational_resampler_ccc(
+                interpolation=int(samp_rate),
+                decimation=int(self.get_bandwidth_capability()),
+                taps=None,
+                fractional_bw=None,
+        )
+        
+        filter_taps = firdes.low_pass(1,samp_rate,100e3,1e3)
+        
+#         self._gr_top_block.connect((self.get_source_block(), 0), (self.rational_resampler_a, 0)) 
+        self._gr_top_block.connect((self._radio_source, 0), (self.rational_resampler_a, 0))
+        
+        msg = '------>>>>> type of self._radio_source: {trs}'.format(trs=type(self._radio_source))
+        log.debug(msg)
+
+        self.freq_xlating_fir_filter = filter.freq_xlating_fir_filter_ccc(1, (filter_taps), 0, samp_rate)
+        
+        self._gr_top_block.connect((self.rational_resampler_a, 0), (self.freq_xlating_fir_filter, 0))    
+
+        
+        self.analog_wfm_rcv = analog.wfm_rcv(
+            quad_rate=samp_rate,
+            audio_decimation=10,
+        )
+
+        self._gr_top_block.connect((self.freq_xlating_fir_filter, 0), (self.analog_wfm_rcv, 0))    
+
+        self.rational_resampler_b = filter.rational_resampler_fff(
+                interpolation=48,
+                decimation=50,
+                taps=None,
+                fractional_bw=None,
+        )
+
+        self._gr_top_block.connect((self.analog_wfm_rcv, 0), (self.rational_resampler_b, 0))  
+        
+        self.blocks_multiply_const = blocks.multiply_const_vff((1, ))
+
+        self._gr_top_block.connect((self.rational_resampler_b, 0), (self.blocks_multiply_const, 0))
+         
+        # connect to audio sink
+        audio_sink_connection = self.add_audio_sink_connection()
+        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), audio_sink_connection))
+
+        msg = 'started demodulation'
+        log.debug(msg)
 
 class RTL2838R820T2RadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2838 receiver
@@ -1368,7 +1490,7 @@ class RTL2838R820T2RadioSource(RadioSource):
         self._gain_mode = False
         self._iq_gain_mode = 0
         self._gain = 10
-        self._af_gain = 10
+        self._af_gain = 1
         self._bb_gain = 20
         self._antenna = ''
         self._bandwith = 0
@@ -1405,15 +1527,26 @@ class RTL2838R820T2RadioSource(RadioSource):
             self._radio_source.set_sample_rate(self.get_bandwidth_capability())
             self._radio_source.set_center_freq(self.get_center_frequency(), 0)
 
-            self._radio_source.set_freq_corr(self._freq_corr, 0)
-            self._radio_source.set_dc_offset_mode(self._dc_offset_mode, 0)
-            self._radio_source.set_iq_balance_mode(self._iq_balance_mode, 0)
-            self._radio_source.set_gain_mode(self._gain_mode, 0)
-            self._radio_source.set_gain(self._gain, 0)
-            self._radio_source.set_if_gain(self._af_gain, 0)
-            self._radio_source.set_bb_gain(self._bb_gain, 0)
-            self._radio_source.set_antenna(self._antenna, 0)
-            self._radio_source.set_bandwidth(self._bandwith, 0)
+#             self._radio_source.set_freq_corr(self._freq_corr, 0)
+#             self._radio_source.set_dc_offset_mode(self._dc_offset_mode, 0)
+#             self._radio_source.set_iq_balance_mode(self._iq_balance_mode, 0)        
+#             self._radio_source.set_gain_mode(self._gain_mode, 0)
+#             self._radio_source.set_gain(self._gain, 0)
+#             self._radio_source.set_if_gain(self._af_gain, 0)
+#             self._radio_source.set_bb_gain(self._bb_gain, 0)
+#             self._radio_source.set_antenna(self._antenna, 0)
+#             self._radio_source.set_bandwidth(self._bandwith, 0)
+#             
+            self._radio_source.set_freq_corr(0, 0)
+            self._radio_source.set_dc_offset_mode(0, 0)
+            self._radio_source.set_iq_balance_mode(0, 0)
+            self._radio_source.set_gain_mode(False, 0)
+            self._radio_source.set_gain(10, 0)
+            self._radio_source.set_if_gain(1, 0)
+            self._radio_source.set_bb_gain(20, 0)
+            self._radio_source.set_antenna('', 0)
+            self._radio_source.set_bandwidth(0, 0)            
+            
             self._radio_state = RadioReceiverSate.OK
         else:
             self._radio_state = RadioReceiverSate.FAILED

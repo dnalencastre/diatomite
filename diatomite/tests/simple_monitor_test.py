@@ -37,8 +37,8 @@ class TestFrequencies(object):
 #     receiver_freq = 97e6
     listener_freq_a = 89.5e6
 #     receiver_freq = 89.3e6
-    receiver_freq = 90e6
-#     receiver_freq = listener_freq_a
+#     receiver_freq = 90e6
+    receiver_freq = listener_freq_a
 
        
     _radio_source._radio_init()
@@ -62,6 +62,8 @@ class TestFrequencies(object):
             logging.error(msg)
             raise
         
+    def do_center_freq_snd_output(self):
+        self._radio_source.do_center_freq_snd_output()
         
     def test_listener_freq_a(self):
         """Test listener_freq_a"""
@@ -130,6 +132,10 @@ if __name__ == "__main__":
 #     test.test_listener_freq_a()
 
     test.get_data()
+    
+#     test.do_center_freq_snd_output()
+
+    
     time.sleep(15)
 
 #     test.stop_source()
