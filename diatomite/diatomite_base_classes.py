@@ -385,16 +385,8 @@ class FreqListener(object):
         frequency
         radio_source_center_frequency -- the radio source's center
                                          frequency in Hz"""
-
-        # calculate offset
-        if self._frequency < radio_source_center_frequency:
-            self._frequency_offset = (radio_source_center_frequency
-                                      - self._frequency) * -1
-        elif self._frequency > radio_source_center_frequency:
-            self._frequency_offset = (radio_source_center_frequency
-                                      - self._frequency)
-        else:
-            self._frequency_offset = 0
+                                         
+        self._frequency_offset = (radio_source_center_frequency - self._frequency) * - 1
 
         msg = 'Frequency offset set to {i}'.format(i=self._frequency_offset)
         log.debug(msg)
@@ -528,6 +520,7 @@ class FreqListener(object):
 
     def _config_frequency_translation(self):
         """Configure the frequency translation filter."""
+
         self._freq_translation_filter = (
             grfilter.freq_xlating_fir_filter_ccc(self._decimation,
                                                  (self._filter_taps),
@@ -1184,12 +1177,8 @@ class RadioSource(object):
         self._radio_source.set_center_freq(frequency, 0)
         msg = 'Radio source frequency set and tuned to {i}'.format(i=frequency)
         log.debug(msg)
-    
-        msg = ('//.//////Receiver {id} set center frequency at '
-               '{f}').format(id=self.get_id(), f=self._center_freq)
-        logging.debug(msg)
 
-        msg = ('//...../Receiver {id} set center frequency at '
+        msg = ('Receiver {id} set center frequency at '
                '{f}').format(id=self.get_id(), f=self.get_center_frequency())
         logging.debug(msg)
 

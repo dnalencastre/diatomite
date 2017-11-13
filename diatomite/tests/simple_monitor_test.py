@@ -39,8 +39,10 @@ class TestFrequencies(object):
 #     receiver_freq = 89.3e6
 #     receiver_freq = 89e6
 #     receiver_freq = 90e6
-    receiver_freq = 89.8e6
+#     receiver_freq = 89.6e6
     receiver_freq = 89.5e6
+#     receiver_freq = 89.4e6
+
 #     receiver_freq = listener_freq_a
 
        
@@ -132,7 +134,14 @@ if __name__ == "__main__":
     test = TestFrequencies()
     
 
+
     test.prep_source()
+    
+    
+    print "Receiver freq:{rf}".format(rf=test.receiver_freq)
+    print "Listener freq:{rf}".format(rf=test.listener_freq_a)
+    print "Frequency offste:{fo}".format(fo=test.receiver_freq - test.listener_freq_a)
+    
     test.test_listener_freq_a()
     test.start_source()
 
