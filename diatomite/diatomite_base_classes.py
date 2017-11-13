@@ -475,6 +475,11 @@ class FreqListener(object):
         msg = ('Listener {id} FFT tap creation set to'
                ' {v}').format(v=create_fft_tap,id=self.get_id())
         log.debug(msg)
+        
+    def set_audio_sink(self, audio_sink):
+        """Set the audio sink for sound output
+        audio_sink -- the audio sink to use"""
+        self._audio_sink = audio_sink
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -512,6 +517,10 @@ class FreqListener(object):
     def get_radio_source_bw(self):
         """Get the radio source bandwidth for this frequency listener"""
         return self._radio_source_bw
+
+    def get_audio_sink(self):
+        """Returns the instance's audio sink."""
+        return self._audio_sink
 
     def set_radio_source_bw(self, radio_source_bw):
         """Get the radio source bandwidth for this frequency listener"""
@@ -728,7 +737,7 @@ class FreqListener(object):
                 msg = ('Failed to setup fft tap'
                        'with {m}').format(m=str(exc))
                 log.debug(msg)
-                raise Exception(msg)     
+                raise Exception(msg)
 
         try:
             self._setup_signal_probe()
@@ -739,6 +748,9 @@ class FreqListener(object):
             raise Exception(msg)
         
         self._status = 'RUNNING'
+        
+        # start sound output - Only for development
+        self.do_snd_output()
         
     def stop(self):
         """Stop the frequency listener """
@@ -774,6 +786,74 @@ class FreqListener(object):
 
    
         #TODO: add the fft data retrieval
+
+    def do_snd_output(self):
+        """Configure for sound output for the listener""" 
+
+        msg = '------->>>>>> start listener {id} fm demod'.format(id=self.get_id())
+        log.debug(msg)
+         
+        self._fm_demod()
+ 
+        msg = '------->>>>>> startED listener {id} fm demod'.format(id=self.get_id())
+        log.debug(msg)      
+       
+    
+    def _fm_demod(self):
+        """Do an FM demodulation for this listener"""
+        
+        samp_rate = 500000
+        
+        self.rational_resampler_a = filter.rational_resampler_ccc(
+                interpolation=int(samp_rate),
+#                 decimation=int(self.get_bandwidth_capability()),
+                decimation=int(2.048e6),
+                taps=None,
+                fractional_bw=None,
+        )
+        
+#         filter_taps = firdes.low_pass(1,samp_rate,100e3,1e3)
+
+        self._gr_top_block.connect((self._freq_translation_filter, 0), (self.rational_resampler_a, 0))
+
+#         filter_taps = firdes.low_pass(1,samp_rate,100e3,1e3)
+        decimation = 1
+        transition_bw =  2000
+        filter_taps = firdes.low_pass(1,samp_rate,samp_rate/(2*decimation), transition_bw)
+        
+        self.freq_xlating_fir_filter = filter.freq_xlating_fir_filter_ccc(1, (filter_taps), 0, samp_rate)
+
+        self._gr_top_block.connect((self.rational_resampler_a, 0), (self.freq_xlating_fir_filter, 0))    
+
+        
+        self.analog_wfm_rcv = analog.wfm_rcv(
+            quad_rate=samp_rate,
+            audio_decimation=10,
+        )
+
+        self._gr_top_block.connect((self.freq_xlating_fir_filter, 0), (self.analog_wfm_rcv, 0))    
+
+        self.rational_resampler_b = filter.rational_resampler_fff(
+                interpolation=48,
+                decimation=50,
+                taps=None,
+                fractional_bw=None,
+        )
+
+        self._gr_top_block.connect((self.analog_wfm_rcv, 0), (self.rational_resampler_b, 0))  
+        
+        self.blocks_multiply_const = blocks.multiply_const_vff((1, ))
+
+        self._gr_top_block.connect((self.rational_resampler_b, 0), (self.blocks_multiply_const, 0))
+         
+        # connect to audio sink
+#         audio_sink_connection = self.add_audio_sink_connection()
+#         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), audio_sink_connection))
+        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), 0))
+
+        msg = 'started demodulation'
+        log.debug(msg)
+
 
 class FreqListenerList(list):
     """Define a list of Frequency listener objects."""
@@ -1221,7 +1301,7 @@ class RadioSource(object):
         
         # for development purposes, output sound
         self.start_audio_sink()
-        self.do_center_freq_snd_output()
+#         self.do_snd_output()
 #         self._fm_demod()
         
         
@@ -1369,11 +1449,15 @@ class RadioSource(object):
         msg = ('started audio sink with sample rate of '
                '{sr}').format(sr=samp_rate)
         log.debug(msg)
-     
+        
+        # pass audio sink to all listeners
+        for freq_listener in self._listener_list:
+            freq_listener.set_audio_sink(self._audio_sink)
+
     def get_audio_sink(self):
-        
+        """Returns the instance's audio sink."""
         return self._audio_sink
-        
+
     def get_audio_sink_connection_qty(self):
         """Get the number of connections to the audio sink"""
         
@@ -1397,7 +1481,7 @@ class RadioSource(object):
             log.error(msg)
             raise ValueError(msg)
     
-    def do_center_freq_snd_output(self):
+    def do_snd_output(self):
         """Configure for sound output of the center frequency""" 
 
         msg = '------->>>>>> start audio sink'
