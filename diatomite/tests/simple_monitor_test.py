@@ -55,8 +55,8 @@ class TestFrequencies(object):
         self._radio_source.set_audio_sink_enable(audio_enable)
         
         # enable the spectrum analyzer for the source
-#         spec_analyzer = True
-        spec_analyzer = False
+        spec_analyzer = True
+#         spec_analyzer = False
         self._radio_source.set_spectrum_analyzer_tap_enable(spec_analyzer)
 
         # define the center frequency midway from upper and lower
