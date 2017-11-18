@@ -38,9 +38,9 @@ class TestFrequencies(object):
     listener_freq_a = 89.5e6
 #     receiver_freq = 89.3e6
 #     receiver_freq = 89e6
-#     receiver_freq = 90e6
+    receiver_freq = 90e6
 #     receiver_freq = 89.6e6
-    receiver_freq = 89.5e6
+#     receiver_freq = 89.5e6
 #     receiver_freq = 89.4e6
 
 #     receiver_freq = listener_freq_a
@@ -49,16 +49,21 @@ class TestFrequencies(object):
     _radio_source._radio_init()
 
     def prep_source(self):
-        self._radio_source.set_create_fft_tap(True)
-        print 'A---->create fft tap:{v}'.format(v=self._radio_source.get_create_fft_tap())
 
+        # enable the audio output
+        audio_enable = True
+        self._radio_source.set_audio_sink_enable(audio_enable)
+        
+        # enable the spectrum analyzer for the source
+#         spec_analyzer = True
+        spec_analyzer = False
+        self._radio_source.set_spectrum_analyzer_tap_enable(spec_analyzer)
 
         # define the center frequency midway from upper and lower
         
         self._radio_source.set_frequency(self.receiver_freq) 
     def start_source(self):
 
-        
         try:
             self._radio_source.start()
         except Exception, excpt:
@@ -97,7 +102,7 @@ class TestFrequencies(object):
 
         print 'Listeners:{l}'.format(l=self._radio_source.get_listener_id_list())
 
-        print 'B---->create fft tap:{v}'.format(v=self._radio_source.get_create_fft_tap())
+        print 'B---->create fft tap:{v}'.format(v=self._radio_source.get_spectrum_analyzer_tap_enable())
 
 
 

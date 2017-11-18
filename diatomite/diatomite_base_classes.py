@@ -41,6 +41,7 @@ from gnuradio import audio
 from gnuradio.filter import firdes
 from gnuradio import analog
 from gnuradio import filter
+import gnuradio
 
 
 class FreqListenerInvalidModulation(Exception):
@@ -959,6 +960,9 @@ class RadioSource(object):
         
         self._status = 'PRE_INIT'
         
+        self._audio_sink_enable = False
+        self._spectrum_analyzer_enable = False
+        
         self._probe_stop = threading.Event()
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
@@ -1001,7 +1005,7 @@ class RadioSource(object):
         log.debug(msg)
 
         
-        # connect the fft to the freq translation filter
+        # connect the fft to the top block
         try:
             self._gr_top_block.connect(self.get_source_block(), 
                                        self._log_fft)
@@ -1012,8 +1016,8 @@ class RadioSource(object):
             raise Exception(msg)
 
         msg = 'FFT connected to Frequency translation.'
-        log.debug(msg)        
-
+        log.debug(msg)  
+        
     def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
         
@@ -1138,21 +1142,6 @@ class RadioSource(object):
             log.error(msg)
             raise BadIdError(msg)
 
-    def set_create_fft_tap(self,create_fft_tap):
-        """Inform if taps are to be created
-        create_fft_tap - if an fft tap is to be created True or False"""
-        
-        if isinstance(create_fft_tap, bool):
-            self._create_fft_tap = create_fft_tap
-        else:
-            msg = 'create_fft_tap must be a boolean'
-            raise TypeError(msg)
-        
-        msg = ('Radio Source {id} FFT tap creation set to'
-               ' {v}').format(v=create_fft_tap,id=self.get_id())
-        log.debug(msg)
-
-
     def set_frequency(self, frequency):
         """Set the source's center frequency
         frequency -- frequency in Hz (integer)"""
@@ -1183,6 +1172,17 @@ class RadioSource(object):
         logging.debug(msg)
 
         # TODO:  iterate the list of listeners and re-set the offset
+        
+    def set_audio_sink_enable(self, audio_enable=True):
+        """Set True if the audio sink is to be enabled, false otherwise.
+        enable -- boolean (Default is True/enabled)"""
+        self._audio_sink_enable = audio_enable
+        
+    def set_spectrum_analyzer_tap_enable(self, audio_enable=True):
+        """Set True if the source frequency analyzer is to be enabled, 
+        false otherwise.
+        enable -- boolean (Default is True/enabled)"""
+        self._spectrum_analyzer_enable = audio_enable
 
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
@@ -1220,10 +1220,11 @@ class RadioSource(object):
         msg = 'FreqListener {i} added to list'.format(i=listener)
         log.debug(msg)
 
-    def get_create_fft_tap(self):
-        """Get if the source is to create an fft tap."""
-        return self._create_fft_tap
-
+    def get_spectrum_analyser_tap_enable(self):
+        """Return True if the spectrum analyser tap is
+        to be enabled."""
+        return self._audio_sink_enable
+    
     def get_id(self):
         """Returns the radio source's id."""
         return self._id
@@ -1263,6 +1264,10 @@ class RadioSource(object):
     def get_listener_id_list(self):
         """Return a list of listener ids configured on this source"""
         return self._listener_list.get_listener_id_list()
+    
+    def get_audio_sink_enable(self):
+        """Return True if the audio sink is to be enabled."""
+        return self._audio_sink_enable
 
     def get_source_block(self):
         """Return the gnu radio source block"""
@@ -1281,35 +1286,40 @@ class RadioSource(object):
         else:
             msg = 'Radio Source not started'
             raise RadioSourceRadioFailureError(msg)
+
+    def get_spectrum_analyzer_tap_enable(self):
+        """Return True if the spectrum analyzer tap is to be enabled."""
+        return self._spectrum_analyzer_enable
     
     def _run_source_subprocess(self, input_conn, output_conn):
-        """start the subprocess for the source."""
-        # TODO: handle the lifecycle of the source
-        
-        
-        
-        # for development purposes, output sound
-        self.start_audio_sink()
-#         self.do_snd_output()
-#         self._fm_demod()
-        
-        
-        # setup fft and connect it to the source
-        try:
-            self._setup_rf_fft()
-        except Exception, exc:
-            msg = ('Failed to setup RF FFT'
-                   'with {m}').format(m=str(exc))
-            log.debug(msg)
-            raise Exception(msg)
-        msg = ('Radio Source {id}, fft setup '
-               'finished').format(id=self.get_id())
-        log.debug(msg)
+        """start the subprocess for a  source.
+        input_conn - input pipe
+        output_conn - output pipe"""
 
-        # handle the fft tap creation
+
+        if self.get_audio_sink_enable():
+            # for development purposes, output sound
+            self.start_audio_sink()
+
+
+
+        # handle frequency analyzer tap creation
         # thread for data tap must be present before
         # the thread that starts the signal probe
-        if self._create_fft_tap:
+        if self.get_spectrum_analyzer_tap_enable():
+            
+            # setup fft and connect it to the source
+            try:
+                self._setup_rf_fft()
+            except Exception, exc:
+                msg = ('Failed to setup RF FFT'
+                       'with {m}').format(m=str(exc))
+                log.debug(msg)
+                raise Exception(msg)
+            msg = ('Radio Source {id}, fft setup '
+                   'finished').format(id=self.get_id())
+            log.debug(msg)
+   
             try:
                 self._setup_fft_tap()
             except Exception, exc:
@@ -1317,27 +1327,23 @@ class RadioSource(object):
                        'with {m}').format(m=str(exc))
                 log.debug(msg)
                 raise Exception(msg)     
-            
-            msg = ('Radio Source {id}, fft TAP setup '
-                   'finished').format(id=self.get_id())
-            log.debug(msg)
-        else:
-            msg = ('Radio Source {id}, fft TAP not '
-                   'requested').format(id=self.get_id())
-            log.debug(msg)          
 
-        try:
-            self._setup_signal_probe()
-        except Exception, exc:
-            msg = ('Failed to setup signal probe'
-                   'with {m}').format(m=str(exc))
-            log.debug(msg)
-            raise Exception(msg)
-        
-        msg = ('Radio Source {id}, fft probe setup '
-               'finished').format(id=self.get_id())
-        log.debug(msg)       
-        
+            try:
+                self._setup_signal_probe()
+            except Exception, exc:
+                msg = ('Failed to setup signal probe'
+                       'with {m}').format(m=str(exc))
+                log.debug(msg)
+                raise Exception(msg)
+            
+            msg = ('Radio Source {id}, spectrum analyzer setup '
+                   'finished').format(id=self.get_id())
+            log.debug(msg)       
+            
+        else:
+            msg = ('Radio Source {id}, spectrum analyzer not '
+                   'requested').format(id=self.get_id())
+            log.debug(msg)         
         
         msg = 'radio source subprocess for {id} starting.'.format(id=self.get_id())
         log.debug(msg)
