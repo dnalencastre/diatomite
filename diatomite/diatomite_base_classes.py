@@ -226,9 +226,9 @@ class DataTap(object):
             output = '{v}\n'.format(v=self._get_value())
             
             with open(self._tap_file_path, 'w', 0) as f_handle:
-                # TODO: re-activate debug log
-#                 msg = ('writing on tap {t}').format(t=self._get_id())
-#                 log.debug(msg)
+#                 TODO: re-activate debug log
+                msg = ('writing on tap {t}').format(t=self._get_id())
+                log.debug(msg)
                 
                 try:
                     f_handle.writelines(output)
@@ -1028,7 +1028,7 @@ class RadioSource(object):
         while not stop_event.is_set():
             
             #TODO: fft value processing should go here
-            
+
             current_time = datetime.datetime.utcnow().isoformat()
            
             # logpower fft swaps the lower and upper halfs
@@ -1037,7 +1037,7 @@ class RadioSource(object):
             val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]
             
             # update taps
-            if self._create_fft_tap:
+            if self.get_spectrum_analyzer_tap_enable():
                 tap_value = '{t};{bw};{lf};{hf};{v}\n'.format(t=current_time,
                                                               v=val, bw=bw,
                                                               lf=low_freq,
