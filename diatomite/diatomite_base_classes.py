@@ -320,11 +320,13 @@ class FreqListener(object):
         self._fft_signal_level = None
         
         self._create_fft_tap = False
+        self._spectrum_analyzer_enable = False
+        
         
         # write the taps to the current directory
         self._tap_directory = os.getcwd()
         
-        self._fft_tap = None
+        self._freq_analyzer_tap = None
         
         self._status = 'PRE_INIT'
         
@@ -456,17 +458,18 @@ class FreqListener(object):
         msg = 'Top block set.'
         log.debug(msg)         
 
-    def set_create_fft_tap(self,create_fft_tap):
-        """Inform if taps are to be created
-        create_fft_tap - if an fft tap is to be created True or False"""
+    def set_spectrum_analyzer_tap_enable(self, create_tap=True):
+        """Set True if the source frequency analyzer is to be enabled, 
+        false otherwise.
+        enable -- boolean (Default is True/enabled)"""
         
-        if isinstance(create_fft_tap, bool):
-            self._create_fft_tap = create_fft_tap
+        if isinstance(create_tap, bool):
+            self._spectrum_analyzer_enable = create_tap
         else:
             msg = 'create_fft_tap must be a boolean'
             raise TypeError(msg)
         msg = ('Listener {id} FFT tap creation set to'
-               ' {v}').format(v=create_fft_tap,id=self.get_id())
+               ' {v}').format(v=create_tap ,id=self.get_id())
         log.debug(msg)
         
     def set_audio_sink(self, audio_sink):
@@ -531,9 +534,10 @@ class FreqListener(object):
         msg = 'Frequency translation set.'
         log.debug(msg)
 
-    def get_create_fft_tap(self):
-        """Get if the listener is to create an fft tap."""
-        return self._create_fft_tap
+    def get_spectrum_analyser_tap_enable(self):
+        """Return True if the spectrum analyser tap is
+        to be enabled."""
+        return self._spectrum_analyzer_enable
 
     def _connect_frequency_translator_to_source(self):
         """Connect the frequency translation filter to the source.
@@ -607,13 +611,13 @@ class FreqListener(object):
             val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]      
             
             # update taps
-            if self._create_fft_tap:
+            if self.get_spectrum_analyser_tap_enable():
                 tap_value = '{t};{bw};{lf};{hf};{v}\n'.format(t=current_time,
                                                               v=val, bw=bw,
                                                               lf=low_freq,
                                                               hf=high_freq)
 
-                self._fft_tap.update_value(tap_value)
+                self._freq_analyzer_tap.update_value(tap_value)
 
                 # TODO: re-activate
 #                 msg = 'updating data tap'
@@ -621,8 +625,8 @@ class FreqListener(object):
             
             stop_event.wait(1.0 / self._probe_poll_rate)
 
-    def _setup_fft_tap(self):
-        """Setup a tap to provide live fft values.
+    def _setup_freq_analyzer_tap(self):
+        """Setup a tap to provide live frequency analyzer values.
         Create a named pipe containing the latest set of fft values.
         Will output to a previously created named pipe/file.
         If an error occurs while creating the named pipe (other than that the
@@ -632,7 +636,7 @@ class FreqListener(object):
         log.debug(msg)
         
         try:
-            self._fft_tap = DataTap(self.get_id())
+            self._freq_analyzer_tap = DataTap(self.get_id())
         except exceptions, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             log.error(msg)
@@ -641,13 +645,13 @@ class FreqListener(object):
         msg = 'Listener {id} FFT tap setup done.'.format(id=self.get_id())
         log.debug(msg)
 
-    def _teardown_fft_tap(self):
+    def _teardown_freq_analyzer_tap(self):
         """Cleanup the live fft values tap.
         Will remove the tap file from the file system"""
         
         # stop the thread
         
-        self._fft_tap.stop()
+        self._freq_analyzer_tap.stop()
 
     def _setup_signal_probe(self):
         """Setup probe to retrieve the fft data"""
@@ -724,9 +728,9 @@ class FreqListener(object):
         # handle the fft tap creation
         # thread for data tap must be present before
         # the thread that starts the signal probe
-        if self._create_fft_tap:
+        if self.get_spectrum_analyser_tap_enable():
             try:
-                self._setup_fft_tap()
+                self._setup_freq_analyzer_tap()
             except Exception, exc:
                 msg = ('Failed to setup fft tap'
                        'with {m}').format(m=str(exc))
@@ -754,7 +758,7 @@ class FreqListener(object):
         
         if self._status == 'RUNNING':
  
-            if self._create_fft_tap:
+            if self.get_spectrum_analyser_tap_enable():
             # stop the fft tap
                 try:
                     self._teardown_fft_tap()
@@ -945,7 +949,7 @@ class RadioSource(object):
         self._create_fft_tap = False
         # write the taps to the current directory
         self._tap_directory = os.getcwd()
-        self._fft_tap = None
+        self._freq_analyzer_tap = None
         
         self._log_fft = None
         self._fft_size = 1024
@@ -1043,7 +1047,7 @@ class RadioSource(object):
                                                               lf=low_freq,
                                                               hf=high_freq)
 
-                self._fft_tap.update_value(tap_value)
+                self._freq_analyzer_tap.update_value(tap_value)
 
                 # TODO: re-activate
 #                 msg = 'updating data tap'
@@ -1051,8 +1055,8 @@ class RadioSource(object):
             
             stop_event.wait(1.0 / self._probe_poll_rate)
 
-    def _setup_fft_tap(self):
-        """Setup a tap to provide live fft values.
+    def _setup_freq_analyzer_tap(self):
+        """Setup a tap to provide live frequency analyzer plot.
         Create a named pipe containing the latest set of fft values.
         Will output to a previously created named pipe/file.
         If an error occurs while creating the named pipe (other than that the
@@ -1062,7 +1066,7 @@ class RadioSource(object):
         log.debug(msg)
         
         try:
-            self._fft_tap = DataTap(self.get_id())
+            self._freq_analyzer_tap = DataTap(self.get_id())
         except exceptions, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             log.error(msg)
@@ -1071,13 +1075,13 @@ class RadioSource(object):
         msg = 'Radio Source {id} FFT tap setup done.'.format(id=self.get_id())
         log.debug(msg)
         
-    def _teardown_fft_tap(self):
+    def _teardown_freq_analyzer_tap(self):
         """Cleanup the live fft values tap.
         Will remove the tap file from the file system"""
         
         # stop the thread
         
-        self._fft_tap.stop()
+        self._freq_analyzer_tap.stop()
         
     def _setup_signal_probe(self):
         """Setup probe to retrieve the fft data"""
@@ -1178,11 +1182,19 @@ class RadioSource(object):
         enable -- boolean (Default is True/enabled)"""
         self._audio_sink_enable = audio_enable
         
-    def set_spectrum_analyzer_tap_enable(self, audio_enable=True):
+    def set_spectrum_analyzer_tap_enable(self, create_tap=True):
         """Set True if the source frequency analyzer is to be enabled, 
         false otherwise.
         enable -- boolean (Default is True/enabled)"""
-        self._spectrum_analyzer_enable = audio_enable
+        
+        if isinstance(create_tap, bool):
+            self._spectrum_analyzer_enable = create_tap
+        else:
+            msg = 'create_fft_tap must be a boolean'
+            raise TypeError(msg)
+        msg = ('Listener {id} FFT tap creation set to'
+               ' {v}').format(v=create_tap ,id=self.get_id())
+        log.debug(msg)
 
     def add_frequency_listener(self, listener):
         """Add a FreqListener to this Radio Source's listener list.
@@ -1221,9 +1233,9 @@ class RadioSource(object):
         log.debug(msg)
 
     def get_spectrum_analyser_tap_enable(self):
-        """Return True if the spectrum analyser tap is
+        """Return True if the spectrum analyzer tap is
         to be enabled."""
-        return self._audio_sink_enable
+        return self._spectrum_analyzer_enable
     
     def get_id(self):
         """Returns the radio source's id."""
@@ -1321,7 +1333,7 @@ class RadioSource(object):
             log.debug(msg)
    
             try:
-                self._setup_fft_tap()
+                self._setup_freq_analyzer_tap()
             except Exception, exc:
                 msg = ('Failed to setup fft TAP'
                        'with {m}').format(m=str(exc))
