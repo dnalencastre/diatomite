@@ -331,6 +331,8 @@ class FreqListener(object):
         self._status = 'PRE_INIT'
         
         self._probe_stop = threading.Event()
+        
+        self._audio_enable = False
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -468,7 +470,7 @@ class FreqListener(object):
         else:
             msg = 'create_fft_tap must be a boolean'
             raise TypeError(msg)
-        msg = ('Listener {id} FFT tap creation set to'
+        msg = ('Radio source {id} FFT tap creation set to'
                ' {v}').format(v=create_tap ,id=self.get_id())
         log.debug(msg)
         
@@ -476,6 +478,23 @@ class FreqListener(object):
         """Set the audio sink for sound output
         audio_sink -- the audio sink to use"""
         self._audio_sink = audio_sink
+        
+    def set_audio_output(self, audio_enable=True):
+        """Set True if audio output is to be enabled, false otherwise.
+        enable -- boolean (Default is True/enabled)"""
+        
+        if isinstance(audio_enable, bool):
+            self._audio_enable = audio_enable
+        else:
+            msg = 'audio_enable must be a boolean'
+            raise TypeError(msg)
+        msg = ('Radio source {id} audio output enabled set to'
+               ' {v}').format(v=audio_enable ,id=self.get_id())
+        log.debug(msg)
+        
+    def get_audio_enable(self):
+        """Return True if the audio output is to be enabled."""
+        return self._audio_enable
 
     def get_id(self):
         """Returns the frequency listener id."""
@@ -653,7 +672,7 @@ class FreqListener(object):
         
         self._freq_analyzer_tap.stop()
 
-    def _setup_signal_probe(self):
+    def _setup_rf_fft_probe(self):
         """Setup probe to retrieve the fft data"""
         
         try:
@@ -737,8 +756,10 @@ class FreqListener(object):
                 log.debug(msg)
                 raise Exception(msg)
 
+        # obtain the fft values
+        # this is needed even if the spectrum analyzer is not enabled
         try:
-            self._setup_signal_probe()
+            self._setup_rf_fft_probe()
         except Exception, exc:
             msg = ('Failed to setup signal probe'
                    'with {m}').format(m=str(exc))
@@ -747,8 +768,9 @@ class FreqListener(object):
         
         self._status = 'RUNNING'
         
-        # start sound output - Only for development
-        self.do_snd_output()
+        # start sound output
+        if self.get_audio_enable():
+            self.do_snd_output()
         
     def stop(self):
         """Stop the frequency listener """
@@ -1083,7 +1105,7 @@ class RadioSource(object):
         
         self._freq_analyzer_tap.stop()
         
-    def _setup_signal_probe(self):
+    def _setup_rf_fft_probe(self):
         """Setup probe to retrieve the fft data"""
         
         try:
@@ -1180,8 +1202,16 @@ class RadioSource(object):
     def set_audio_sink_enable(self, audio_enable=True):
         """Set True if the audio sink is to be enabled, false otherwise.
         enable -- boolean (Default is True/enabled)"""
-        self._audio_sink_enable = audio_enable
         
+        if isinstance(audio_enable, bool):
+            self._audio_sink_enable = audio_enable
+        else:
+            msg = 'audio_enable must be a boolean'
+            raise TypeError(msg)
+        msg = ('Radio source {id} audio output enabled set to'
+               ' {v}').format(v=audio_enable ,id=self.get_id())
+        log.debug(msg)        
+
     def set_spectrum_analyzer_tap_enable(self, create_tap=True):
         """Set True if the source frequency analyzer is to be enabled, 
         false otherwise.
@@ -1190,9 +1220,9 @@ class RadioSource(object):
         if isinstance(create_tap, bool):
             self._spectrum_analyzer_enable = create_tap
         else:
-            msg = 'create_fft_tap must be a boolean'
+            msg = 'enable must be a boolean'
             raise TypeError(msg)
-        msg = ('Listener {id} FFT tap creation set to'
+        msg = ('Radio source {id} frequency analyzer tap creation set to'
                ' {v}').format(v=create_tap ,id=self.get_id())
         log.debug(msg)
 
@@ -1341,7 +1371,7 @@ class RadioSource(object):
                 raise Exception(msg)     
 
             try:
-                self._setup_signal_probe()
+                self._setup_rf_fft_probe()
             except Exception, exc:
                 msg = ('Failed to setup signal probe'
                        'with {m}').format(m=str(exc))

@@ -97,6 +97,9 @@ class TestFrequencies(object):
         self._freq_listener.set_bandwidth(bandwidth_to_set)
         self._freq_listener.set_spectrum_analyzer_tap_enable(True)
         
+        audio_enable = True
+        self._freq_listener.set_audio_output(audio_enable)
+        
         self._radio_source.add_frequency_listener(self._freq_listener)
         
 
