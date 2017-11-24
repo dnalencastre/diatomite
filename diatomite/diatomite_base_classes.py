@@ -926,9 +926,9 @@ class FreqListener(object):
         self._gr_top_block.connect((self.rational_resampler_b, 0), (self.blocks_multiply_const, 0))
          
         # connect to audio sink
-#         audio_sink_connection = self.add_audio_sink_connection()
-#         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), audio_sink_connection))
-        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), 0))
+        audio_sink_connection = self.add_audio_sink_connection()
+        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), audio_sink_connection))
+#         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), 0))
 
         msg = 'started demodulation'
         log.debug(msg)
