@@ -42,6 +42,7 @@ from gnuradio.filter import firdes
 from gnuradio import analog
 from gnuradio import filter
 import gnuradio
+from mhlib import isnumeric
 
 
 class FreqListenerInvalidModulation(Exception):
@@ -299,11 +300,7 @@ class FreqListener(object):
         self._decimation = 1
         self._samp_rate = 500000
         self._transition_bw = 2000
-        self._filter_taps = grfilter.firdes.low_pass(1,
-                                                     self._samp_rate,
-                                                     (self._samp_rate
-                                                      / (2*self._decimation)),
-                                                     self._transition_bw)
+        self._filter_taps = None
         self._radio_source_bw = 0
         self._radio_source_block = None
         self._gr_top_block = None
@@ -317,7 +314,9 @@ class FreqListener(object):
         
         # probe poll rate in hz
         self._probe_poll_rate = 10
-        self._fft_signal_level = None
+        
+        # Signal power threshold to determine if it's transmitting.
+        self._signal_pwr_threshold = None
         
         self._create_fft_tap = False
         self._spectrum_analyzer_enable = False
@@ -491,6 +490,21 @@ class FreqListener(object):
         msg = ('Radio source {id} audio output enabled set to'
                ' {v}').format(v=audio_enable ,id=self.get_id())
         log.debug(msg)
+
+    def set_radio_source_bw(self, radio_source_bw):
+        """set the radio source bandwidth for this frequency listener"""
+        self._radio_source_bw = radio_source_bw
+
+    def set_signal_pwr_threshold(self, pwr_threshold):
+        """ set the threshold above which the signal is considered present
+        pwr_threshold - the threshold, a negative number
+        This number should be above the noise floor for the frequency, and
+        can be determined by looking at the frequency analyzer and choosing
+        a level between the noise floor and the peak of the signal.
+        """
+        if isnumeric(pwr_threshold):
+            if pwr_threshold < 0:
+                self._signal_pwr_threshold = pwr_threshold
         
     def get_audio_enable(self):
         """Return True if the audio output is to be enabled."""
@@ -530,25 +544,91 @@ class FreqListener(object):
         return self._frequency - (self._bandwidth/2)
 
     def get_radio_source_bw(self):
-        """Get the radio source bandwidth for this frequency listener"""
+        """Get the radio source bandwidth for this frequency listener."""
         return self._radio_source_bw
 
     def get_audio_sink(self):
         """Returns the instance's audio sink."""
         return self._audio_sink
-
-    def set_radio_source_bw(self, radio_source_bw):
-        """Get the radio source bandwidth for this frequency listener"""
-        self._radio_source_bw = radio_source_bw
+    
+    def get_signal_pwr_threshold(self):
+        """ set the threshold above which the signal is considered present."""
+        return self._signal_pwr_threshold
 
     def _config_frequency_translation(self):
         """Configure the frequency translation filter."""
 
-        self._freq_translation_filter = (
+#         _filter_taps = grfilter.firdes.low_pass(1,
+#                                                 self._samp_rate,
+#                                                 (self._samp_rate
+#                                                 / (2*self._decimation)),
+#                                                 self._transition_bw)
+
+#         _filter_taps = grfilter.firdes.low_pass(1,
+#                                                 self._samp_rate,
+#                                                 (self._samp_rate / (2*self._decimation)),
+#                                                 self._transition_bw)
+
+        filter_samp_rate = 500e3
+        gain = 1
+        cutoff_freq = filter_samp_rate/(2 * self._decimation)
+        _filter_taps = grfilter.firdes.low_pass(gain,
+                                                filter_samp_rate,
+                                                cutoff_freq,
+                                                self._transition_bw)
+        
+        
+        self._freq_translation_filter_input = (
             grfilter.freq_xlating_fir_filter_ccc(self._decimation,
-                                                 (self._filter_taps),
+                                                 (_filter_taps),
                                                  self.get_frequency_offset(),
                                                  self.get_radio_source_bw()))
+        
+        
+        r_resampler = filter.rational_resampler_ccc(
+                interpolation=int(filter_samp_rate),
+                decimation=int(self.get_radio_source_bw()),
+                taps=None,
+                fractional_bw=None,
+        )
+
+        try:
+            self._gr_top_block.connect(self._freq_translation_filter_input, 
+                                       r_resampler)
+        except Exception, exc:
+            msg = ('Failed connecting input filter to rational resampler'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise
+
+        msg = 'Input filter connected to rational resampler.'
+        log.debug(msg)
+
+
+        self._freq_translation_filter_output = (
+            grfilter.freq_xlating_fir_filter_ccc(self._decimation,
+                                                 (_filter_taps),
+                                                 0,
+                                                 filter_samp_rate))
+        try:
+            self._gr_top_block.connect(r_resampler, 
+                                       self._freq_translation_filter_output)
+        except Exception, exc:
+            msg = ('Failed connecting rational resampler to output filter'
+                   ' {m}').format(m=str(exc))
+            log.debug(msg)
+            raise
+
+        msg = 'Input rational resampler connected to output filter.'
+        log.debug(msg)  
+  
+ 
+#  AQUI 
+#         self._freq_translation_filter = (
+#             grfilter.freq_xlating_fir_filter_ccc(self._decimation,
+#                                                  (_filter_taps),
+#                                                  self.get_frequency_offset(),
+#                                                  self.get_bandwidth()))
         
         msg = 'Frequency translation set.'
         log.debug(msg)
@@ -564,7 +644,7 @@ class FreqListener(object):
      
         try:
             self._gr_top_block.connect(self._radio_source_block, 
-                                       self._freq_translation_filter)
+                                       self._freq_translation_filter_input)
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
                    ' {m}').format(m=str(exc))
@@ -599,7 +679,7 @@ class FreqListener(object):
         
         # connect the fft to the freq translation filter
         try:
-            self._gr_top_block.connect(self._freq_translation_filter, 
+            self._gr_top_block.connect(self._freq_translation_filter_output, 
                                        self._log_fft)                 
         except Exception, exc:
             msg = ('Failed to connect the fft to freq translation, with:'
@@ -824,34 +904,13 @@ class FreqListener(object):
         
         samp_rate = 500000
         
-        self.rational_resampler_a = filter.rational_resampler_ccc(
-                interpolation=int(samp_rate),
-#                 decimation=int(self.get_bandwidth_capability()),
-                decimation=int(2.048e6),
-                taps=None,
-                fractional_bw=None,
-        )
-        
-#         filter_taps = firdes.low_pass(1,samp_rate,100e3,1e3)
-
-        self._gr_top_block.connect((self._freq_translation_filter, 0), (self.rational_resampler_a, 0))
-
-#         filter_taps = firdes.low_pass(1,samp_rate,100e3,1e3)
-        decimation = 1
-        transition_bw =  2000
-        filter_taps = firdes.low_pass(1,samp_rate,samp_rate/(2*decimation), transition_bw)
-        
-        self.freq_xlating_fir_filter = filter.freq_xlating_fir_filter_ccc(1, (filter_taps), 0, samp_rate)
-
-        self._gr_top_block.connect((self.rational_resampler_a, 0), (self.freq_xlating_fir_filter, 0))    
-
-        
         self.analog_wfm_rcv = analog.wfm_rcv(
             quad_rate=samp_rate,
             audio_decimation=10,
         )
 
-        self._gr_top_block.connect((self.freq_xlating_fir_filter, 0), (self.analog_wfm_rcv, 0))    
+#         self._gr_top_block.connect((self.freq_xlating_fir_filter, 0), (self.analog_wfm_rcv, 0))    
+        self._gr_top_block.connect((self._freq_translation_filter_output, 0), (self.analog_wfm_rcv, 0))    
 
         self.rational_resampler_b = filter.rational_resampler_fff(
                 interpolation=48,
@@ -1757,7 +1816,12 @@ class DiatomiteProbe(object):
                " list").format(i=radio_source)
         log.debug(msg)
 
-    #TODO: add method to start all radio sources
-    
-    #TODO: add method to stop all radio sources
+    def start_sources(self):
+        """Start all the sources"""
+        pass
+        #TODO: add method to start all radio sources
 
+    def stop_sources(self):
+        """stop all the sources"""
+        pass
+        #TODO: add method to stop all radio sources

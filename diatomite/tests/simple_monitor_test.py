@@ -36,6 +36,11 @@ class TestFrequencies(object):
 #     listener_freq_a = 97.8e6
 #     receiver_freq = 97e6
     listener_freq_a = 89.5e6
+#     listener_freq_a = 90.8e6
+#     listener_freq_a = 90.77e6
+
+#     listener_freq_a = 89.539e6
+#     listener_freq_a = 89.615e6
 #     receiver_freq = 89.3e6
 #     receiver_freq = 89e6
     receiver_freq = 90e6
@@ -83,7 +88,8 @@ class TestFrequencies(object):
         """Test listener_freq_a"""
 
         # set the bandwidth
-        bwidth = 200e3
+#         bwidth = 200e3
+        bwidth = 200000
 
 
 
@@ -95,6 +101,8 @@ class TestFrequencies(object):
         self._freq_listener = diatomite_base_classes.FreqListener(id_to_set)
         self._freq_listener.set_frequency(self.listener_freq_a)
         self._freq_listener.set_bandwidth(bandwidth_to_set)
+#         self._freq_listener.set_bandwidth(bwidth)
+
         self._freq_listener.set_spectrum_analyzer_tap_enable(True)
         
         audio_enable = True
