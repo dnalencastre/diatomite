@@ -333,6 +333,8 @@ class FreqListener(object):
         
         self._audio_enable = False
 
+        self._radio_source = None
+
     def set_id(self, listener_id):
         """Sets the frequency listener id.
         Converts alphabetic characters to lower case.
@@ -353,6 +355,18 @@ class FreqListener(object):
             msg = 'Frequency id contains can only contain AZaz09-_'
             log.error(msg)
             raise BadIdError(msg)
+        
+    def set_radio_source(self, radio_source):
+        """Sets the radio source to which this listener is connected to.
+        radio_soure -- object of RadioSource class"""
+        if isinstance(radio_source, RadioSource):
+            self._radio_source = radio_source
+        else:
+            msg = 'radio_source must be a RadioSource object'
+            raise TypeError(msg)
+        msg = ('Listener {id} set to radios source').format(v=radio_source ,id=self.get_id())
+        log.debug(msg)
+
         
     def set_tap_directory(self, path):
         """Set the directory where tap files should be written to.
@@ -926,8 +940,8 @@ class FreqListener(object):
         self._gr_top_block.connect((self.rational_resampler_b, 0), (self.blocks_multiply_const, 0))
          
         # connect to audio sink
-        audio_sink_connection = self.add_audio_sink_connection()
-        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), audio_sink_connection))
+        audio_sink_connection = self._radio_source.add_audio_sink_connection()
+        self._gr_top_block.connect((self.blocks_multiply_const, 0), (self._radio_source.get_audio_sink(), audio_sink_connection))
 #         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), 0))
 
         msg = 'started demodulation'
@@ -1316,6 +1330,9 @@ class RadioSource(object):
         
         # pass the top block
         listener.set_gr_top_block(self._gr_top_block)
+        
+        # pass the radio source object
+        listener.set_radio_source(self)
 
         self._listener_list.append(listener)
         msg = 'FreqListener {i} added to list'.format(i=listener)
