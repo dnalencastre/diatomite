@@ -35,6 +35,7 @@ import sys
 import exceptions
 import errno
 import logging
+import numpy
 
 # this is used for fm demod and sound output. used for development
 from gnuradio import audio
@@ -450,8 +451,13 @@ class FreqListener(object):
         """Set the gnu radio source block.
         source_block -- the gr source block of type osmosdr.osmosdr_swig.source_sptr"""
         
-        if not type(source_block) == osmosdr.osmosdr_swig.source_sptr:
-            msg = 'Wrong type for radio source block.'
+        type_source_block = type(source_block)
+        
+        # check if we were given an object of the right type
+        if not type_source_block == osmosdr.osmosdr_swig.source_sptr:
+            msg = ('radio source block must be of type '
+                   ' osmosdr.osmosdr_swig.source_sptr,'
+                   ' was {tsb}.').format(tsb=type_source_block)
             log.error(msg)
             raise TypeError(msg)
         else:
@@ -465,6 +471,7 @@ class FreqListener(object):
         
         type_gr_top_block = type(gr_top_block)
         
+        # check if we were given an object of the right type
         if not type_gr_top_block == gr.top_block:
             msg = ('gr_top_block must be of type gr.top_block,'
                    ' was {tgtb}').format(tgtb=type_gr_top_block)
@@ -705,6 +712,45 @@ class FreqListener(object):
         msg = 'FFT connected to Frequency translation.'
         log.debug(msg)
 
+    def _check_signal_present(self,fft_val):
+        """Check if the signal is present by comparing the power to the power threshold,
+        evaluating the average level on a slice of the FFT around the center frequency.
+        fft_val -- fft tuple/array to be checked
+        """
+        
+        # slice lenght to evaluate (%)
+        slice_percentage=25
+        
+        fft_len = len(fft_val)
+        
+        slice_len = (fft_len * slice_percentage) / 100
+        
+        slice_start = ( fft_val / 2 ) - int(slice_len / 2)
+        slice_end = ( fft_val / 2 ) + int(slice_len / 2)
+                
+        # compute average for the slice
+        signal_avg = numpy.mean(fft_val[slice_start:slice_end])
+        
+        if signal_avg >= self.get_signal_pwr_threshold():
+            self.notify_signal_present(signal_avg)
+        else:
+            self.notify_signal_absent(signal_avg)
+
+    def notify_signal_present(self, signal_level):
+        """Notify that the signal is present and the current level
+        signal_level -- the signal level in DBm"""        
+        
+        msg = 'Signal is PRESENT. Level {l} DBm'.format(l=signal_level)
+        log.debug(msg)
+        # TODO: pass the notification to the receiver
+
+    def notify_signal_absent(self, signal_level):
+        """Notify that the signal is absent and the current level
+        signal_level -- the signal level in DBm"""
+
+        msg = 'Signal is ABSENT. Level {l} DBm'.format(l=signal_level)
+        log.debug(msg)
+        # TODO: pass the notification to the receiver
 
     def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
@@ -715,15 +761,16 @@ class FreqListener(object):
         
         while not stop_event.is_set():
             
-            #TODO: fft value processing should go here
-            
             current_time = datetime.datetime.utcnow().isoformat()
            
             # logpower fft swaps the lower and upper halfs of 
             # the spectrum, this fixes it
             vraw = self._fft_signal_probe.level()
-            val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]      
+            val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]
             
+            # check if the signal is present
+            self._check_signal_present(val)
+
             # update taps
             if self.get_spectrum_analyser_tap_enable():
                 tap_value = '{t};{bw};{lf};{hf};{v}\n'.format(t=current_time,

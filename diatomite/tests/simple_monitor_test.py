@@ -103,7 +103,12 @@ class TestFrequencies(object):
         self._freq_listener.set_bandwidth(bandwidth_to_set)
 #         self._freq_listener.set_bandwidth(bwidth)
 
+        signal_threshold = -2
+        self.set_signal_pwr_threshold(signal_threshold)
+
         self._freq_listener.set_spectrum_analyzer_tap_enable(True)
+        
+        
         
         audio_enable = True
         self._freq_listener.set_audio_output(audio_enable)
