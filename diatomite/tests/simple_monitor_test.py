@@ -103,8 +103,10 @@ class TestFrequencies(object):
         self._freq_listener.set_bandwidth(bandwidth_to_set)
 #         self._freq_listener.set_bandwidth(bwidth)
 
-        signal_threshold = -2
-        self.set_signal_pwr_threshold(signal_threshold)
+#         signal_threshold = -2
+        signal_threshold = -65
+
+        self._freq_listener.set_signal_pwr_threshold(signal_threshold)
 
         self._freq_listener.set_spectrum_analyzer_tap_enable(True)
         
