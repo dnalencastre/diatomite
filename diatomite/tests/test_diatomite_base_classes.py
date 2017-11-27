@@ -564,7 +564,7 @@ class TestFreqListener(object):
 
         try:
             freq_listener.set_modulation(modulation_to_set)
-        except diatomite_base_classes.FreqListenerInvalidModulation:
+        except diatomite_base_classes.FreqListenerInvalidModulationError:
             pass
         else:
             msg = 'FrequencyListener accepted an unacceptable modulation'
@@ -1137,7 +1137,7 @@ class TestRadioSource(object):
 
         try:
             radio_source.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioSourceFrequencyOutOfBounds:
+        except diatomite_base_classes.RadioSourceFrequencyOutOfBoundsError:
             pass
         else:
             msg = ('{o} accepted a frequency below the minimum'
@@ -1159,7 +1159,7 @@ class TestRadioSource(object):
 
         try:
             self._radio_source.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioSourceFrequencyOutOfBounds:
+        except diatomite_base_classes.RadioSourceFrequencyOutOfBoundsError:
             pass
         else:
             msg = ('{o} accepted a frequency above the maximum'

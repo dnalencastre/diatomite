@@ -45,12 +45,12 @@ import gnuradio
 from mhlib import isnumeric
 
 
-class FreqListenerInvalidModulation(Exception):
+class FreqListenerInvalidModulationError(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
 
 
-class RadioSourceFrequencyOutOfBounds(Exception):
+class RadioSourceFrequencyOutOfBoundsError(Exception):
     """Raised when a RadioSource is given a FreqListener that has frequency and
     bandwidth that don't fit within the radio source's frequency abilites."""
     pass
@@ -97,7 +97,7 @@ class RadioSpectrum(object):
         return self._lower_rf_limit
 
 
-class RadioReceiverSate(object):
+class RadioSourceSate(object):
     """Define possible states for a radio a receiver."""
     PRE_INIT = 0
     OK = 1
@@ -443,7 +443,7 @@ class FreqListener(object):
             msg = ('modulation must be one of {m}').format(
                 m=' '.join(acceptable_modulations))
             log.error(msg)
-            raise FreqListenerInvalidModulation(msg)
+            raise FreqListenerInvalidModulationError(msg)
         
     def set_source_block(self,source_block):
         """Set the gnu radio source block.
@@ -923,7 +923,6 @@ class FreqListener(object):
             audio_decimation=10,
         )
 
-#         self._gr_top_block.connect((self.freq_xlating_fir_filter, 0), (self.analog_wfm_rcv, 0))    
         self._gr_top_block.connect((self._freq_translation_filter_output, 0), (self.analog_wfm_rcv, 0))    
 
         self.rational_resampler_b = filter.rational_resampler_fff(
@@ -942,7 +941,6 @@ class FreqListener(object):
         # connect to audio sink
         audio_sink_connection = self._radio_source.add_audio_sink_connection()
         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self._radio_source.get_audio_sink(), audio_sink_connection))
-#         self._gr_top_block.connect((self.blocks_multiply_const, 0), (self.get_audio_sink(), 0))
 
         msg = 'started demodulation'
         log.debug(msg)
@@ -1035,7 +1033,7 @@ class RadioSource(object):
                                                    - self._cap_freq_min) / 2)
         self.set_id(radio_source_id)
 
-        self._radio_state = RadioReceiverSate.PRE_INIT
+        self._radio_state = RadioSourceSate.PRE_INIT
 
         self._radio_source = None
 
@@ -1078,7 +1076,7 @@ class RadioSource(object):
         self._gr_top_block = gr.top_block()
         # specific radio initialization to be added on this method on derived
         # classes
-        self._radio_state = RadioReceiverSate.OK
+        self._radio_state = RadioSourceSate.OK
 
     def _setup_rf_fft(self):
         """Setup an fft to check the RF status."""
@@ -1309,7 +1307,7 @@ class RadioSource(object):
                        lf=listener.get_upper_frequency(),
                        mf=self._cap_freq_max)
             log.error(msg)
-            raise RadioSourceFrequencyOutOfBounds(msg)
+            raise RadioSourceFrequencyOutOfBoundsError(msg)
 
         if listener.get_lower_frequency() < self._cap_freq_min:
             msg = ("The listener's lower frequency ({lf}) is below the "
@@ -1317,7 +1315,7 @@ class RadioSource(object):
                    " ({mf})").format(lf=listener.get_lower_frequency(),
                                      mf=self._cap_freq_min)
             log.error(msg)
-            raise RadioSourceFrequencyOutOfBounds(msg)
+            raise RadioSourceFrequencyOutOfBoundsError(msg)
 
         # update the listener's offset
         listener.set_frequency_offset(self._center_freq)
@@ -1390,7 +1388,7 @@ class RadioSource(object):
     def get_source_block(self):
         """Return the gnu radio source block"""
         
-        if self._radio_state == RadioReceiverSate.OK:
+        if self._radio_state == RadioSourceSate.OK:
             return self._radio_source
         else:
             msg = 'Radio Source not started'
@@ -1399,7 +1397,7 @@ class RadioSource(object):
     def get_gr_top_block(self):
         """Retrieve the Gnu radio top block for this source"""
 
-        if self._radio_state == RadioReceiverSate.OK:
+        if self._radio_state == RadioSourceSate.OK:
             return self._gr_top_block
         else:
             msg = 'Radio Source not started'
@@ -1744,9 +1742,9 @@ class RTL2838R820T2RadioSource(RadioSource):
             self._radio_source.set_antenna('', 0)
             self._radio_source.set_bandwidth(0, 0)            
             
-            self._radio_state = RadioReceiverSate.OK
+            self._radio_state = RadioSourceSate.OK
         else:
-            self._radio_state = RadioReceiverSate.FAILED
+            self._radio_state = RadioSourceSate.FAILED
             msg = 'Radio initialization failed'
             raise RadioSourceRadioFailureError(msg)
 
