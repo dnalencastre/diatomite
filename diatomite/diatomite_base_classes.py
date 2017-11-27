@@ -286,7 +286,45 @@ class FreqListener(object):
     _modulation = ''
     
     # TODO: unify fft probe and tap initialization and teardown
+    
+    _decimation = 1
+    _samp_rate = 500000
+    _transition_bw = 2000
+    _filter_taps = None
+    _radio_source_bw = 0
+    _radio_source_block = None
+    _gr_top_block = None
 
+    _log_fft = None
+    _fft_size = 1024
+    _fft_ref_scale = 2
+    _fft_frame_rate = 30
+    _fft_avg_alpha = 1.0
+    _fft_average = False
+    
+    # probe poll rate in hz
+    _probe_poll_rate = 10
+    
+    # Signal power threshold to determine if it's transmitting.
+    _signal_pwr_threshold = None
+    
+    _create_fft_tap = False
+    _spectrum_analyzer_enable = False
+    
+    
+    # write the taps to the current directory
+    _tap_directory = os.getcwd()
+    
+    _freq_analyzer_tap = None
+    
+    _status = 'PRE_INIT'
+    
+    _probe_stop = threading.Event()
+    
+    _audio_enable = False
+
+    _radio_source = None
+    
     # frequency offset from the radio source
     _frequency_offset = 0
 
@@ -297,43 +335,6 @@ class FreqListener(object):
                 underscore, dash."""
 
         self.set_id(listener_id)
-        self._decimation = 1
-        self._samp_rate = 500000
-        self._transition_bw = 2000
-        self._filter_taps = None
-        self._radio_source_bw = 0
-        self._radio_source_block = None
-        self._gr_top_block = None
-
-        self._log_fft = None
-        self._fft_size = 1024
-        self._fft_ref_scale = 2
-        self._fft_frame_rate = 30
-        self._fft_avg_alpha = 1.0
-        self._fft_average = False
-        
-        # probe poll rate in hz
-        self._probe_poll_rate = 10
-        
-        # Signal power threshold to determine if it's transmitting.
-        self._signal_pwr_threshold = None
-        
-        self._create_fft_tap = False
-        self._spectrum_analyzer_enable = False
-        
-        
-        # write the taps to the current directory
-        self._tap_directory = os.getcwd()
-        
-        self._freq_analyzer_tap = None
-        
-        self._status = 'PRE_INIT'
-        
-        self._probe_stop = threading.Event()
-        
-        self._audio_enable = False
-
-        self._radio_source = None
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
