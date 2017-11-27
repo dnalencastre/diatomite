@@ -992,14 +992,31 @@ class RadioSource(object):
     """Define a radio source.
     This usually relates to the radio hardware
     """
+    
+    # set the spectrum limits to RF
+    _radio_spectrum = RadioSpectrum()
+    _cap_freq_min = _radio_spectrum.get_lower_frequency()
+    _cap_freq_max = _radio_spectrum.get_upper_frequency()
+    
+        # set center frequency halfway between min and max
+    _center_freq = _cap_freq_max - ((_cap_freq_max
+                                     - _cap_freq_min) / 2)
+    
+    # define a human readable type for this source
+    _type = 'base_radio_source'
+    
+    # configure the hardware device for this source
+    _source_args = ''
+    
+    # define the bandwidth capability for this
+    _cap_bw = 1000 
 
-    # Id of the radio source
+    # Id of the radio source, will be set by __init__
     _id = ''
 
     # list of frequency listeners
-    _listener_list = None
+    _listener_list = FreqListenerList()
 
-    _type = ''
 
     # define the bandwidth capability of the radio source, in hz
     _cap_bw = 0
@@ -1015,52 +1032,45 @@ class RadioSource(object):
     # radio source arguments
     _source_args = ''
     
-    _radio_state = None
+    _radio_state = RadioSourceSate.PRE_INIT
+    
+    
+    _radio_source = None
+
+    _create_fft_tap = False
+    
+    # write the taps to the current directory
+    _tap_directory = os.getcwd()
+    _freq_analyzer_tap = None
+    
+    # FFT definitios    
+    _log_fft = None
+    _fft_size = 1024
+    _fft_ref_scale = 2
+    _fft_frame_rate = 30
+    _fft_avg_alpha = 1.0
+    _fft_average = False
+        
+    # probe poll rate in hz
+    _probe_poll_rate = 10
+    _fft_signal_level = None
+        
+    _status = 'PRE_INIT'
+        
+    _audio_sink_enable = False
+    _spectrum_analyzer_enable = False
+        
+    _probe_stop = threading.Event()    
+
 
     def __init__(self, radio_source_id):
         """Initialize the radio source object.
         radio_source_id -- the frequency listener id.
                         Acceptable characters: ASCII characters, numbers,
                         underscore, dash."""
-        radio_spectrum = RadioSpectrum()
-        self._type = 'base_radio_source'
         self._source_args = "numchan=" + str(1) + " " + ''
-        self._cap_bw = 1000
-        self._cap_freq_min = radio_spectrum.get_lower_frequency()
-        self._cap_freq_max = radio_spectrum.get_upper_frequency()
-        # set center frequency halfway between min and max
-        self._center_freq = self._cap_freq_max - ((self._cap_freq_max
-                                                   - self._cap_freq_min) / 2)
+
         self.set_id(radio_source_id)
-
-        self._radio_state = RadioSourceSate.PRE_INIT
-
-        self._radio_source = None
-
-        self._listener_list = FreqListenerList()
-
-        self._create_fft_tap = False
-        # write the taps to the current directory
-        self._tap_directory = os.getcwd()
-        self._freq_analyzer_tap = None
-        
-        self._log_fft = None
-        self._fft_size = 1024
-        self._fft_ref_scale = 2
-        self._fft_frame_rate = 30
-        self._fft_avg_alpha = 1.0
-        self._fft_average = False
-        
-        # probe poll rate in hz
-        self._probe_poll_rate = 10
-        self._fft_signal_level = None
-        
-        self._status = 'PRE_INIT'
-        
-        self._audio_sink_enable = False
-        self._spectrum_analyzer_enable = False
-        
-        self._probe_stop = threading.Event()
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
@@ -1663,6 +1673,24 @@ class RadioSource(object):
 class RTL2838R820T2RadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2838 receiver
      and a R820T2 tuner."""
+     
+
+    _type = 'RTL2838_R820T2'
+    _cap_bw = 2400000
+    _cap_freq_min = 25000
+    _cap_freq_max = 1750000000
+    _center_freq = _cap_freq_max - ((_cap_freq_max
+                                     - _cap_freq_min) / 2)
+    _freq_corr = 0
+    _dc_offset_mode = 0
+    _iq_balance_mode = 0
+    _gain_mode = False
+    _iq_gain_mode = 0
+    _gain = 10
+    _af_gain = 1
+    _bb_gain = 20
+    _antenna = ''
+    _bandwith = 0
 
     def __init__(self, radio_source_id):
         """Initialize the radio source object.
@@ -1672,26 +1700,7 @@ class RTL2838R820T2RadioSource(RadioSource):
                         
         super(RTL2838R820T2RadioSource, self).__init__(radio_source_id)
                         
-        self._type = 'RTL2838_R820T2'
-        self._source_args = "numchan=" + str(1) + " " + ''
-        self._cap_bw = 2400000
-        self._cap_freq_min = 25000
-        self._cap_freq_max = 1750000000
-        self._center_freq = self._cap_freq_max - ((self._cap_freq_max
-                                                   - self._cap_freq_min) / 2)
-        self._freq_corr = 0
-        self._dc_offset_mode = 0
-        self._iq_balance_mode = 0
-        self._gain_mode = False
-        self._iq_gain_mode = 0
-        self._gain = 10
-        self._af_gain = 1
-        self._bb_gain = 20
-        self._antenna = ''
-        self._bandwith = 0
-        self._radio_source = None
 
-        self._listener_list = FreqListenerList()
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
@@ -1720,18 +1729,7 @@ class RTL2838R820T2RadioSource(RadioSource):
 
         if radio_init_sucess:
             self._radio_source.set_sample_rate(self.get_bandwidth_capability())
-            self._radio_source.set_center_freq(self.get_center_frequency(), 0)
-
-#             self._radio_source.set_freq_corr(self._freq_corr, 0)
-#             self._radio_source.set_dc_offset_mode(self._dc_offset_mode, 0)
-#             self._radio_source.set_iq_balance_mode(self._iq_balance_mode, 0)        
-#             self._radio_source.set_gain_mode(self._gain_mode, 0)
-#             self._radio_source.set_gain(self._gain, 0)
-#             self._radio_source.set_if_gain(self._af_gain, 0)
-#             self._radio_source.set_bb_gain(self._bb_gain, 0)
-#             self._radio_source.set_antenna(self._antenna, 0)
-#             self._radio_source.set_bandwidth(self._bandwith, 0)
-#             
+            self._radio_source.set_center_freq(self.get_center_frequency(), 0)             
             self._radio_source.set_freq_corr(0, 0)
             self._radio_source.set_dc_offset_mode(0, 0)
             self._radio_source.set_iq_balance_mode(0, 0)
