@@ -1,0 +1,27 @@
+site: 
+    name: "test site 1"
+    probe: 
+        name: "test probe 1"
+        RadioSources:
+            radiosource1:
+                name: "rs1"
+                type: "RTL2838_R820T2"
+                listeners:
+                    listener1:
+                        name: "ln1"
+                        frequency: "89.5e6"
+                        modulation: "FM"
+                        bandwidth: "200000"
+                        level_threshold: "-65"
+                    listener2:
+                        name: "ln2"
+                        frequency: "90e6"
+                        bandwidth: "200000"
+                        level_threshold: "-65"
+            radiosource2:
+                name: "rs2"
+                type: "RTL2838_R820T2"
+                listeners:
+                    listener1:
+                        name: "ln1"
+                        frequency: "97e6"
