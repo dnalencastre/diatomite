@@ -344,8 +344,19 @@ class DiatomiteProbe(object):
     A diatomite probe has one or more radio sources
     """
 
+    _id = ''
     _site = DiatomiteSite()
     _radio_source_list = RadioSourceList()
+    
+    def set_id(self,id):
+        """Set the id of this probe
+        id -- id of the probe"""
+        self._id = id
+        
+    def get_id(self):
+        """Return the id of this probe"""
+        
+        return self._id
 
     def add_radio_source(self, radio_source):
         """Add a FreqListener to this Radio source's listener list.

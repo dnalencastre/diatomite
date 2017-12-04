@@ -1,27 +1,31 @@
-site: 
-    name: "test site 1"
-    probe: 
-        name: "test probe 1"
+site:
+    id: "test site 1"
+    location: "On the lab"
+    # each site must have one probe
+    probe:
+        id: "test probe 1"
+        # each probe must have at least one radio source
         RadioSources:
             radiosource1:
-                name: "rs1"
+                id: "rs1"
                 type: "RTL2838_R820T2"
+                # each radio source must have at least one listener
                 listeners:
                     listener1:
-                        name: "ln1"
+                        id: "ln1"
                         frequency: "89.5e6"
                         modulation: "FM"
                         bandwidth: "200000"
                         level_threshold: "-65"
                     listener2:
-                        name: "ln2"
+                        id: "ln2"
                         frequency: "90e6"
                         bandwidth: "200000"
                         level_threshold: "-65"
             radiosource2:
-                name: "rs2"
+                id: "rs2"
                 type: "RTL2838_R820T2"
                 listeners:
                     listener1:
-                        name: "ln1"
+                        id: "ln1"
                         frequency: "97e6"
