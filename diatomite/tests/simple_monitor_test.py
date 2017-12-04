@@ -23,7 +23,8 @@ import sys
 import os
 import time
 sys.path.append(os.path.abspath('../'))
-import diatomite.diatomite_base_classes as diatomite_base_classes
+import diatomite.radiosource as radiosource
+import diatomite.freqlistener as freqlistener
 import logging
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
@@ -31,7 +32,7 @@ class TestFrequencies(object):
     """Test with a specific frequency"""
 
     rs_id = 'testRTL2838R820T2RadioSource'
-    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+    _radio_source = radiosource.RTL2838R820T2RadioSource(rs_id)
     
 #     listener_freq_a = 97.8e6
 #     receiver_freq = 97e6
@@ -78,7 +79,7 @@ class TestFrequencies(object):
             raise
         
     def do_center_freq_snd_output(self):
-        self._radio_source.do_center_freq_snd_output()
+        self._radio_source.do_snd_output()
         
         
     def do_listner_snd_output(self):
@@ -98,7 +99,7 @@ class TestFrequencies(object):
 
         # add a new frequency listener
         id_to_set = 'listener_freq_a'
-        self._freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        self._freq_listener = freqlistener.FreqListener(id_to_set)
         self._freq_listener.set_frequency(self.listener_freq_a)
         self._freq_listener.set_bandwidth(bandwidth_to_set)
 #         self._freq_listener.set_bandwidth(bwidth)

@@ -19,22 +19,24 @@
                        Version 3, 19 November 2007
 """
 
-import diatomite.diatomite_base_classes as diatomite_base_classes
 import osmosdr
 from gnuradio import gr
 import time
+import diatomite.radiosource as radiosource
+import diatomite.freqlistener as freqlistener
+import diatomite.diatomite_aux_classes as dia_aux
 
 class TestDataTap(object):
     """Test the DataTap class"""
     
     id_to_set = 'test_data_tap'
-    _test_data_tap = diatomite_base_classes.DataTap(id_to_set)
+    _test_data_tap = dia_aux.DataTap(id_to_set)
     
     def test_init_and_stop(self):
         id_to_set = 'test_init_and_stop'
         
         try:
-            dt = diatomite_base_classes.DataTap(id_to_set)
+            dt = dia_aux.DataTap(id_to_set)
         except Exception, excpt:
             msg = ('Unable to initialize  DataTap,'
                    ' with {e}').format(e=excpt)
@@ -51,7 +53,7 @@ class TestDataTap(object):
         """Test setting and retrieving data tap id, Checks that string is
         stored as lower case."""
         id_to_set = 'test_id123-A'
-        data_tap = diatomite_base_classes.DataTap(id_to_set)
+        data_tap = dia_aux.DataTap(id_to_set)
         data_tap._set_id(id_to_set)
 
         id_from_dt = data_tap._get_id()
@@ -66,11 +68,11 @@ class TestDataTap(object):
 
         # needs to be initialized correctly
         id_to_set = 'initial'
-        data_tap = diatomite_base_classes.DataTap(id_to_set)
+        data_tap = dia_aux.DataTap(id_to_set)
         id_to_set = 'test!@##$$%$%^'
         try:
             data_tap._set_id(id_to_set)
-        except diatomite_base_classes.BadIdError:
+        except dia_aux.BadIdError:
             pass
         else:
             data_tap.stop()
@@ -101,7 +103,7 @@ class TestDataTap(object):
         
         # use a different DataTap to ensure the file isn't overwritten by other thread
         id_to_set = 'test_output'
-        test_data_tap = diatomite_base_classes.DataTap(id_to_set)
+        test_data_tap = dia_aux.DataTap(id_to_set)
         
         file_path = test_data_tap._get_file()
   
@@ -138,7 +140,7 @@ class TestRadioSourceList(object):
 
         non_radio_source = 'test'
 
-        radio_source_list = diatomite_base_classes.RadioSourceList()
+        radio_source_list = dia_aux.RadioSourceList()
         try:
             radio_source_list.append(non_radio_source)
         except TypeError:
@@ -148,22 +150,22 @@ class TestRadioSourceList(object):
         """adding an object of type RadioSource is successful."""
 
         rs_id = 'test_append_with_RadioSource_sucess'
-        radio_source = diatomite_base_classes.RadioSource(rs_id)
+        radio_source = radiosource.RadioSource(rs_id)
 
-        radio_source_list = diatomite_base_classes.RadioSourceList()
+        radio_source_list = dia_aux.RadioSourceList()
 
         radio_source_list.append(radio_source)
 
     def test_get_receiver_id_list(self):
         """Test retrieving the list of radio source ids"""
         # define an empty FreqListenerList
-        radio_source_list = diatomite_base_classes.RadioSourceList()
+        radio_source_list = dia_aux.RadioSourceList()
 
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_b'
-        radio_source_a = diatomite_base_classes.RadioSource(id_to_set_a)
-        radio_source_b = diatomite_base_classes.RadioSource(id_to_set_b)
+        radio_source_a = radiosource.RadioSource(id_to_set_a)
+        radio_source_b = radiosource.RadioSource(id_to_set_b)
         radio_source_list.append(radio_source_a)
         radio_source_list.append(radio_source_b)
         control_list = []
@@ -184,13 +186,13 @@ class TestRadioSourceList(object):
     def test_append_repeating_id_fail(self):
         """Adding an already existing id should fail."""
         # define an empty FreqListenerList
-        radio_source_list = diatomite_base_classes.RadioSourceList()
+        radio_source_list = dia_aux.RadioSourceList()
 
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_a'
-        radio_source_a = diatomite_base_classes.RadioSource(id_to_set_a)
-        radio_source_b = diatomite_base_classes.RadioSource(id_to_set_b)
+        radio_source_a = radiosource.RadioSource(id_to_set_a)
+        radio_source_b = radiosource.RadioSource(id_to_set_b)
         radio_source_list.append(radio_source_a)
         control_list = []
 
@@ -199,7 +201,7 @@ class TestRadioSourceList(object):
 
         try:
             radio_source_list.append(radio_source_b)
-        except diatomite_base_classes.RadioSourceListIdNotUniqueError:
+        except dia_aux.RadioSourceListIdNotUniqueError:
             pass
         else:
             msg = 'RadioSourceList accepted an existing ID'
@@ -209,7 +211,7 @@ class TestRadioSourceList(object):
 class TestRadioSpectrum(object):
     """Test RadioSpectrum."""
 
-    _radio_spectrum = diatomite_base_classes.RadioSpectrum()
+    _radio_spectrum = dia_aux.RadioSpectrum()
 
     def test_get_upper_frequency(self):
         """Test retrieving the upper frequency of the RadioSpectrum.
@@ -248,8 +250,8 @@ class TestFreqListenerList(object):
     """Test FreqListenerList."""
 
     fl_id = 'testFreqListenerList'
-    _freq_listener = diatomite_base_classes.FreqListener(fl_id)
-    _freq_listener_list = diatomite_base_classes.FreqListenerList()
+    _freq_listener = freqlistener.FreqListener(fl_id)
+    _freq_listener_list = dia_aux.FreqListenerList()
 
     def test_append_with_non_FreqListener_fail(self):
         """adding an object not of type FreqListenerList should raise a
@@ -270,13 +272,13 @@ class TestFreqListenerList(object):
     def test_append_repeating_id_fail(self):
         """Adding an already existing id should fail."""
         # define an empty FreqListenerList
-        freq_listener_list = diatomite_base_classes.FreqListenerList()
+        freq_listener_list = dia_aux.FreqListenerList()
 
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_a'
-        freq_listener_a = diatomite_base_classes.FreqListener(id_to_set_a)
-        freq_listener_b = diatomite_base_classes.FreqListener(id_to_set_b)
+        freq_listener_a = freqlistener.FreqListener(id_to_set_a)
+        freq_listener_b = freqlistener.FreqListener(id_to_set_b)
         freq_listener_list.append(freq_listener_a)
         control_list = []
 
@@ -285,7 +287,7 @@ class TestFreqListenerList(object):
 
         try:
             freq_listener_list.append(freq_listener_b)
-        except diatomite_base_classes.FreqListenerListIdNotUniqueError:
+        except dia_aux.FreqListenerListIdNotUniqueError:
             pass
         else:
             msg = 'FreqListenerList accepted an existing ID'
@@ -295,13 +297,13 @@ class TestFreqListenerList(object):
         """Test retrieving list of listener ids."""
 
         # define an empty FreqListenerList
-        freq_listener_list = diatomite_base_classes.FreqListenerList()
+        freq_listener_list = dia_aux.FreqListenerList()
 
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_b'
-        freq_listener_a = diatomite_base_classes.FreqListener(id_to_set_a)
-        freq_listener_b = diatomite_base_classes.FreqListener(id_to_set_b)
+        freq_listener_a = freqlistener.FreqListener(id_to_set_a)
+        freq_listener_b = freqlistener.FreqListener(id_to_set_b)
         freq_listener_list.append(freq_listener_a)
         freq_listener_list.append(freq_listener_b)
         control_list = []
@@ -328,7 +330,7 @@ class TestFreqListener(object):
         """Test setting and retrieving frequency id, Checks that string is
         stored as lower case."""
         id_to_set = 'test_id123-A'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_id(id_to_set)
 
         id_from_fl = freq_listener.get_id()
@@ -341,11 +343,11 @@ class TestFreqListener(object):
 
         # needs to be initialized correctly
         id_to_set = 'initial'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         id_to_set = 'test!@##$$%$%^'
         try:
             freq_listener.set_id(id_to_set)
-        except diatomite_base_classes.BadIdError:
+        except dia_aux.BadIdError:
             pass
         else:
             msg = ('FrequencyListener accepted an ID with unacceptable '
@@ -356,22 +358,22 @@ class TestFreqListener(object):
         """Test setting a frequency ID containing unacceptable characters."""
 
         id_to_set = 'test_set_empty_id'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         id_to_set = ''
         try:
             freq_listener.set_id(id_to_set)
-        except diatomite_base_classes.BadIdError:
+        except dia_aux.BadIdError:
             pass
         else:
             assert False, 'FrequencyListener accepted an empty ID'
 
     def test_set_and_get_frequency(self):
         """Test setting and retrieving frequency."""
-        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum = dia_aux.RadioSpectrum()
         radio_spectrum_minimums = radio_spectrum.get_lower_frequency()
         frequency_to_set = radio_spectrum_minimums + 1000
         id_to_set = 'test_set_and_get_frequency'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
 
         frequency_from_fl = freq_listener.get_frequency()
@@ -384,7 +386,7 @@ class TestFreqListener(object):
         listener"""
 
         id_to_set = 'test_set_and_get_radio_source_bw'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         radio_source_bw_to_set = 1000
 
@@ -397,10 +399,10 @@ class TestFreqListener(object):
 
     def test_set_frequency_below_radio_spectrum_minimums(self):
         """Test setting the frequency below the radio spectrum minimums."""
-        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum = dia_aux.RadioSpectrum()
         radio_spectrum_minimums = radio_spectrum.get_lower_frequency()
         id_to_set = 'test_set_frequency_below_radio_spectrum_minimums'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         if radio_spectrum_minimums <= 1000:
             frequency_to_set = radio_spectrum_minimums - 1
@@ -417,10 +419,10 @@ class TestFreqListener(object):
 
     def test_set_frequency_above_radio_spectrum_maximums(self):
         """Test setting the frequency above the radio spectrum maximums."""
-        radio_spectrum = diatomite_base_classes.RadioSpectrum()
+        radio_spectrum = dia_aux.RadioSpectrum()
         radio_spectrum_maximums = radio_spectrum.get_upper_frequency()
         id_to_set = 'test_set_frequency_above_radio_spectrum_maximums'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         frequency_to_set = radio_spectrum_maximums + 1000
 
@@ -436,7 +438,7 @@ class TestFreqListener(object):
         """Test that set_frequency only accepts integer numbers."""
         frequency_to_set = 'blah'
         id_to_set = 'test_set_frequency_only_accepts_integer_numbers_a'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_frequency(frequency_to_set)
@@ -447,7 +449,7 @@ class TestFreqListener(object):
 
         frequency_to_set = 1.5
         id_to_set = 'test_set_frequency_only_accepts_integer_numbers_b'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_frequency(frequency_to_set)
@@ -460,7 +462,7 @@ class TestFreqListener(object):
         """Test setting the frequency offset."""
 
         id_to_set = 'test_frequency_offset'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         listener_freq = 200000
         radio_source_freq = 600000
@@ -492,7 +494,7 @@ class TestFreqListener(object):
         """Test setting and retrieving bandwidth."""
         bandwidth_to_set = 123
         id_to_set = 'test_set_and_get_bandwidth'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
         bandwidth_from_fl = freq_listener.get_bandwidth()
@@ -504,7 +506,7 @@ class TestFreqListener(object):
         """Test that set_bandwidth only accepts integer numbers."""
         bandwidth_to_set = 'blah'
         id_to_set = 'test_set_bandwidth_only_accepts_integer_numbers'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_bandwidth(bandwidth_to_set)
@@ -515,7 +517,7 @@ class TestFreqListener(object):
 
         frequency_to_set = 1.5
         id_to_set = 'test_set_bandwidth_only_accepts_integer_numbers_b'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_bandwidth(frequency_to_set)
@@ -528,7 +530,7 @@ class TestFreqListener(object):
         """Test setting and retrieving modulation."""
         modulation_to_set = 'FM'
         id_to_set = 'test_set_and_get_modulation'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_modulation(modulation_to_set)
 
         modulation_from_fl = freq_listener.get_modulation()
@@ -542,8 +544,8 @@ class TestFreqListener(object):
         id_to_set = 'test_set_gr_radio_source'
         # use one of the derived Classes from RadioSource for which you have 
         # hardware connected
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(id_to_set)
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        radio_source = radiosource.RTL2838R820T2RadioSource(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         radio_source._radio_init()
         radio_source_block = radio_source.get_source_block()
@@ -560,11 +562,11 @@ class TestFreqListener(object):
         """Test setting an unacceptable modulation."""
         modulation_to_set = 'blaaah'
         id_to_set = 'test_set_unacceptable_modulation'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_modulation(modulation_to_set)
-        except diatomite_base_classes.FreqListenerInvalidModulationError:
+        except freqlistener.FreqListenerInvalidModulationError:
             pass
         else:
             msg = 'FrequencyListener accepted an unacceptable modulation'
@@ -574,14 +576,14 @@ class TestFreqListener(object):
         """Test setting the gnuradio top block."""
 
         # setup a RadioSource
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('test_set_gr_top_block')
+        radio_source = radiosource.RTL2838R820T2RadioSource('test_set_gr_top_block')
         radio_source._radio_init()
 
         frequency_to_set = 12000
         bandwidth_to_set = 1000
 
         id_to_set = 'test_set_gr_top_block'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
@@ -596,7 +598,7 @@ class TestFreqListener(object):
         bandwidth_to_set = 1000
 
         id_to_set = 'test_set_gr_top_block'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
@@ -616,7 +618,7 @@ class TestFreqListener(object):
         upper_freq = frequency_to_set + (bandwidth_to_set/2)
 
         id_to_set = 'test_get_upper_frequency'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
@@ -634,7 +636,7 @@ class TestFreqListener(object):
         lower_freq = frequency_to_set - (bandwidth_to_set/2)
 
         id_to_set = 'test_get_lower_frequency'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
@@ -649,12 +651,12 @@ class TestFreqListener(object):
         source."""
         
         # setup a RadioSource
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source = radiosource.RTL2838R820T2RadioSource('testRadioSource')
         radio_source._radio_init()
         
         # setup a FrequencyListener
         id_to_set = 'test_connect_frequency_translator_to_source'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         # determine radio frequency to use on listener
         # use the radio source center frequency as datum
@@ -691,12 +693,12 @@ class TestFreqListener(object):
         """Test setting up an fft"""
         
         # setup a RadioSource
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source = radiosource.RTL2838R820T2RadioSource('testRadioSource')
         radio_source._radio_init()
         
         # setup a FrequencyListener
         id_to_set = 'test_setup_rf_fft'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         # determine radio frequency to use on listener
         # use the radio source center frequency as datum
@@ -742,12 +744,12 @@ class TestFreqListener(object):
         """Test setting up and stopping the signal probe"""
  
         # setup a RadioSource
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source = radiosource.RTL2838R820T2RadioSource('testRadioSource')
         radio_source._radio_init()
         
         # setup a FrequencyListener
         id_to_set = 'test_setup_signal_probe'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         # determine radio frequency to use on listener
         # use the radio source center frequency as datum
@@ -809,12 +811,12 @@ class TestFreqListener(object):
         """Test starting and stopping the frequency listener"""
  
         # setup a RadioSource
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource('testRadioSource')
+        radio_source = radiosource.RTL2838R820T2RadioSource('testRadioSource')
         radio_source._radio_init()
         
         # setup a FrequencyListener
         id_to_set = 'test_connect_frequency_translator_to_source'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         # determine radio frequency to use on listener
         # use the radio source center frequency as datum
@@ -854,7 +856,7 @@ class TestFreqListener(object):
         """Test set_create_fft_tap and get_create_fft_tap"""
         create_fft_tap = True
         id_to_set = 'test_set_and_get_create_fft_tap'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         try:
             freq_listener.set_create_fft_tap(create_fft_tap)
@@ -877,7 +879,7 @@ class TestFreqListener(object):
         """Test set_create_fft_tap with a non boolean"""
         create_fft_tap = 25
         id_to_set = 'test_set_create_fft_tap_with_bad_value'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         
         try:
             freq_listener.set_create_fft_tap(create_fft_tap)
@@ -890,13 +892,13 @@ class TestFreqListener(object):
 class TestRadioSource(object):
     """Test the RadioSource class"""
 
-    _radio_source = diatomite_base_classes.RadioSource('testRadioSource')
-    _radio_spectrum = diatomite_base_classes.RadioSpectrum()
+    _radio_source = radiosource.RadioSource('testRadioSource')
+    _radio_spectrum = dia_aux.RadioSpectrum()
 
     def test_init_without_id(self):
         """Test the initialization without passing an id"""
         try:
-            diatomite_base_classes.RadioSource()
+            radiosource.RadioSource()
         except TypeError:
             pass
         else:
@@ -907,11 +909,11 @@ class TestRadioSource(object):
         """Test setting a frequency ID containing unacceptable characters."""
 
         id_to_set = 'test_set_empty_id'
-        radio_source = diatomite_base_classes.RadioSource(id_to_set)
+        radio_source = radiosource.RadioSource(id_to_set)
         id_to_set = ''
         try:
             radio_source.set_id(id_to_set)
-        except diatomite_base_classes.BadIdError:
+        except dia_aux.BadIdError:
             pass
         else:
             assert False, 'RadioSource accepted an empty ID'
@@ -933,7 +935,7 @@ class TestRadioSource(object):
         id_to_set = 'test!@##$$%$%^'
         try:
             self._radio_source.set_id(id_to_set)
-        except diatomite_base_classes.BadIdError:
+        except dia_aux.BadIdError:
             pass
         else:
             msg = 'RadioSource accepted an ID with unacceptable characters'
@@ -985,7 +987,7 @@ class TestRadioSource(object):
 
         frequency_to_set = 1.5
         id_to_set = 'test_set_frequency_only_accepts_integer_numbers_b'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
 
         try:
             freq_listener.set_frequency(frequency_to_set)
@@ -1076,7 +1078,7 @@ class TestRadioSource(object):
 
         try:
             self._radio_source._radio_init()
-        except diatomite_base_classes.RadioSourceRadioFailureError, exc:
+        except radiosource.RadioSourceRadioFailureError, exc:
             msg = ('Failed radio init with {m} for'
                    ' Class {c}').format(m=str(exc), c=type(self._radio_source))
             assert False, msg
@@ -1111,7 +1113,7 @@ class TestRadioSource(object):
 #         bandwidth_to_set = bwidth/2
 # 
 #         id_to_set = 'test_add_frequency_listener'
-#         freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+#         freq_listener = freqlistener.FreqListener(id_to_set)
 #         freq_listener.set_frequency(frequency_to_set)
 #         freq_listener.set_bandwidth(bandwidth_to_set)
 #         
@@ -1131,13 +1133,13 @@ class TestRadioSource(object):
         frequency_to_set = lower_from_radio_source
         bandwidth_to_set = 1000
         id_to_set = 'test_add_frequency_listener_with_lower_frequency'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
         try:
             radio_source.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioSourceFrequencyOutOfBoundsError:
+        except radiosource.RadioSourceFrequencyOutOfBoundsError:
             pass
         else:
             msg = ('{o} accepted a frequency below the minimum'
@@ -1153,13 +1155,13 @@ class TestRadioSource(object):
         frequency_to_set = upper_from_radio_source
         bandwidth_to_set = 1000
         id_to_set = 'test_add_frequency_listener_with_higher_frequency'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
 
         try:
             self._radio_source.add_frequency_listener(freq_listener)
-        except diatomite_base_classes.RadioSourceFrequencyOutOfBoundsError:
+        except radiosource.RadioSourceFrequencyOutOfBoundsError:
             pass
         else:
             msg = ('{o} accepted a frequency above the maximum'
@@ -1170,14 +1172,14 @@ class TestRadioSource(object):
 class TestRTL2838R820T2RadioSource(object):
     """Test RTL2838R820T2RadioSource class"""
     rs_id = 'testRTL2838R820T2RadioSource'
-    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+    _radio_source = radiosource.RTL2838R820T2RadioSource(rs_id)
 
     def test_radio_init(self):
         """Test the radio initialization"""
 
         try:
             self._radio_source._radio_init()
-        except diatomite_base_classes.RadioSourceRadioFailureError, excpt:
+        except radiosource.RadioSourceRadioFailureError, excpt:
             msg = ('Failed radio init with {m} for Class'
                    ' {c}').format(m=str(excpt), c=type(self._radio_source))
             assert False, msg
@@ -1215,7 +1217,7 @@ class TestRTL2838R820T2RadioSource(object):
         bandwidth_to_set = bwidth/2
 
         id_to_set = 'test_add_frequency_listener'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
@@ -1254,7 +1256,7 @@ class TestRTL2838R820T2RadioSource(object):
         bandwidth_to_set = bwidth/2
 
         id_to_set = 'test_start_frequency_listeners'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(frequency_to_set)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
@@ -1287,7 +1289,7 @@ class TestRTL2838R820T2RadioSource(object):
 
         # need a clean radio source
         rs_id = 'rs2'
-        radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+        radio_source = radiosource.RTL2838R820T2RadioSource(rs_id)
 
         upper_from_radio_source = radio_source.get_upper_frequency()
         lower_from_radio_source = radio_source.get_lower_frequency()
@@ -1302,9 +1304,9 @@ class TestRTL2838R820T2RadioSource(object):
         # add a few elements to the freq list and control list
         id_to_set_a = 'test_a'
         id_to_set_b = 'test_b'
-        freq_listener_a = diatomite_base_classes.FreqListener(id_to_set_a)
+        freq_listener_a = freqlistener.FreqListener(id_to_set_a)
         freq_listener_a.set_frequency(frequency_to_set)
-        freq_listener_b = diatomite_base_classes.FreqListener(id_to_set_b)
+        freq_listener_b = freqlistener.FreqListener(id_to_set_b)
         freq_listener_b.set_frequency(frequency_to_set)
         
         radio_source._radio_init()
@@ -1341,14 +1343,14 @@ class TestRTL2838R820T2RadioSource(object):
 class TestDiatomiteProbe(object):
     """Test DiatomiteProbe class."""
 
-    _diatomite_probe = diatomite_base_classes.DiatomiteProbe()
+    _diatomite_probe = dia_aux.DiatomiteProbe()
 
     def test_add_radio_source(self):
         """Test adding a RadioSource to the DiatomiteProbe's
         RadioSourceList."""
 
         rs_id = 'test_add_radio_source'
-        r_receiver = diatomite_base_classes.RadioSource(rs_id)
+        r_receiver = radiosource.RadioSource(rs_id)
 
         self._diatomite_probe.add_radio_source(r_receiver)
 
@@ -1368,7 +1370,7 @@ class TestAFrequencies(object):
     """Test with a specific frequency"""
 
     rs_id = 'testRTL2838R820T2RadioSource'
-    _radio_source = diatomite_base_classes.RTL2838R820T2RadioSource(rs_id)
+    _radio_source = radiosource.RTL2838R820T2RadioSource(rs_id)
     
     listener_freq_a = 97.8e6
     receiver_freq = 97e6
@@ -1388,7 +1390,7 @@ class TestAFrequencies(object):
 
         # add a new frequency listener
         id_to_set = 'listener_freq_a'
-        freq_listener = diatomite_base_classes.FreqListener(id_to_set)
+        freq_listener = freqlistener.FreqListener(id_to_set)
         freq_listener.set_frequency(self.listener_freq_a)
         freq_listener.set_bandwidth(bandwidth_to_set)
         
