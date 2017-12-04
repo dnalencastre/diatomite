@@ -381,19 +381,25 @@ class TestFreqListener(object):
         if not frequency_to_set == frequency_from_fl:
             assert False, 'Frequency that was set was not returned correctly'
 
-    def test_set_and_get_radio_source_bw(self):
-        """Test setting and getting the radio source bandwidth for this
+    def test_get_radio_source_bw(self):
+        """Test getting the radio source bandwidth for this
         listener"""
+        
+        rs_id = 'testRTL2838R820T2RadioSource'
+        _radio_source = radiosource.RTL2838R820T2RadioSource(rs_id)
+        
+        receiver_freq = 90e6
+
+        _radio_source._radio_init()
+        _radio_source.set_frequency(receiver_freq)
 
         id_to_set = 'test_set_and_get_radio_source_bw'
         freq_listener = freqlistener.FreqListener(id_to_set)
+        
+        _radio_source.add_frequency_listener(freq_listener)
 
-        radio_source_bw_to_set = 1000
-
-        freq_listener.set_radio_source_bw(radio_source_bw_to_set)
-
-        if radio_source_bw_to_set != freq_listener.get_radio_source_bw():
-            msg = ('Radio source bandwidth that was set was not'
+        if _radio_source.get_bandwidth_capability() != freq_listener.get_radio_source_bw():
+            msg = ('Radio source bandwidth was not'
                    ' returned correctly')
             assert False, msg
 

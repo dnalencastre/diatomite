@@ -401,19 +401,9 @@ class RadioSource(object):
             log.error(msg)
             raise RadioSourceFrequencyOutOfBoundsError(msg)
 
-        # update the listener's offset
-        listener.set_frequency_offset(self._center_freq)
-
-        # pass the bandwidth to the listener
-        listener.set_radio_source_bw(self._cap_bw)
-
-        # pass the source block
-        listener.set_source_block(self.get_source_block())
-
-        # pass the top block
-        listener.set_gr_top_block(self._gr_top_block)
-
         # pass the radio source object
+        # this will also set the gr_top_block and frequency offset
+        # on this listener
         listener.set_radio_source(self)
 
         self._listener_list.append(listener)

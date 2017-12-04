@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 """
-    diatomite - monitoring radio frequency activity
+    diatomite - Auxiliary classes for the diatomite system
     Copyright (C) 2017 Duarte Alencastre
 
     This program is free software: you can redistribute it and/or modify

@@ -26,14 +26,12 @@ import datetime
 import threading
 from string import ascii_letters, digits
 from operator import isNumberType
-import osmosdr
 import numpy
 from gnuradio import gr
 from gnuradio import blocks
 from gnuradio import filter as grfilter
 from gnuradio.fft import logpwrfft
 from gnuradio import analog
-# from diatomite import radiosource
 import radiosource
 import diatomite_aux_classes as dia_aux
 
@@ -72,8 +70,6 @@ class FreqListener(object):
     _samp_rate = 500000
     _transition_bw = 2000
     _filter_taps = None
-    _radio_source_bw = 0
-    _radio_source_block = None
     _gr_top_block = None
 
     _log_fft = None
@@ -148,9 +144,19 @@ class FreqListener(object):
 
     def set_radio_source(self, radio_source):
         """Sets the radio source to which this listener is connected to.
+        Also sets the top block and the frequency offset.
         radio_soure -- object of RadioSource class"""
         if isinstance(radio_source, radiosource.RadioSource):
+
+            # set the radio source
             self._radio_source = radio_source
+
+            # set the top block
+            self._set_gr_top_block(self._radio_source.get_gr_top_block())
+
+            # set the frequency offset
+            self.set_frequency_offset(self._radio_source.get_center_frequency())
+
         else:
             msg = 'radio_source must be a RadioSource object'
             raise TypeError(msg)
@@ -236,26 +242,7 @@ class FreqListener(object):
             log.error(msg)
             raise FreqListenerInvalidModulationError(msg)
 
-    def set_source_block(self, source_block):
-        """Set the gnu radio source block.
-        source_block -- the gr source block of type
-            osmosdr.osmosdr_swig.source_sptr"""
-
-        type_source_block = type(source_block)
-
-        # check if we were given an object of the right type
-        if not type_source_block == osmosdr.osmosdr_swig.source_sptr:
-            msg = ('radio source block must be of type '
-                   ' osmosdr.osmosdr_swig.source_sptr,'
-                   ' was {tsb}.').format(tsb=type_source_block)
-            log.error(msg)
-            raise TypeError(msg)
-        else:
-            self._radio_source_block = source_block
-            msg = 'Radio Source block set.'
-            log.debug(msg)
-
-    def set_gr_top_block(self, gr_top_block):
+    def _set_gr_top_block(self, gr_top_block):
         """Set the gnu radio top block.
         gr_top_block -- the gr top block of gr.top_block"""
 
@@ -302,10 +289,6 @@ class FreqListener(object):
         msg = ('Radio source {id} audio output enabled set to'
                ' {v}').format(v=audio_enable, id=self.get_id())
         log.debug(msg)
-
-    def set_radio_source_bw(self, radio_source_bw):
-        """set the radio source bandwidth for this frequency listener"""
-        self._radio_source_bw = radio_source_bw
 
     def set_signal_pwr_threshold(self, pwr_threshold):
         """ set the threshold above which the signal is considered present
@@ -356,8 +339,14 @@ class FreqListener(object):
         return self._frequency - (self._bandwidth/2)
 
     def get_radio_source_bw(self):
-        """Get the radio source bandwidth for this frequency listener."""
-        return self._radio_source_bw
+        """Get the radio source bandwidth."""
+
+        if isinstance(self._radio_source, radiosource.RadioSource):
+            return self._radio_source.get_bandwidth_capability()
+        else:
+            msg = ('RadioSource for this listener not set,'
+                   ' Unable to obtain Bandwidth')
+            raise FreqListenerError(msg)
 
     def get_audio_sink(self):
         """Returns the instance's audio sink."""
@@ -432,8 +421,15 @@ class FreqListener(object):
         """Connect the frequency translation filter to the source.
         """
 
+        if isinstance(self._radio_source, radiosource.RadioSource):
+            radio_source_block = self._radio_source.get_source_block()
+        else:
+            msg = ('RadioSource for this listener not set,'
+                   ' Unable to obtain source block')
+            raise FreqListenerError(msg)
+
         try:
-            self._gr_top_block.connect(self._radio_source_block,
+            self._gr_top_block.connect(radio_source_block,
                                        self._freq_translation_filter_input)
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
