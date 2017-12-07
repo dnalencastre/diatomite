@@ -52,7 +52,7 @@ class TestFrequencies(object):
 #     receiver_freq = listener_freq_a
 
        
-    _radio_source._radio_init()
+#     _radio_source._radio_init()
 
     def prep_source(self):
 
@@ -112,10 +112,11 @@ class TestFrequencies(object):
         self._freq_listener.set_spectrum_analyzer_tap_enable(True)
         
         
-        
         audio_enable = True
-        self._freq_listener.set_audio_output(audio_enable)
+        self._freq_listener.set_audio_enable(audio_enable)
         
+        tap_path = '.'
+        self._radio_source.set_tap_directory(tap_path)
         self._radio_source.add_frequency_listener(self._freq_listener)
         
 

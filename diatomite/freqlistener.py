@@ -63,6 +63,8 @@ class FreqListener(object):
 
     # modulation
     _modulation = ''
+    
+    _supported_modulations = ['fm','am']
 
     # TODO: unify fft probe and tap initialization and teardown
 
@@ -88,10 +90,9 @@ class FreqListener(object):
     _create_fft_tap = False
     _spectrum_analyzer_enable = False
 
-    # write the taps to the current directory
-    _tap_directory = os.getcwd()
-
     _freq_analyzer_tap = None
+    
+    _tap_directory = None
 
     _status = 'PRE_INIT'
 
@@ -156,6 +157,13 @@ class FreqListener(object):
 
             # set the frequency offset
             self.set_frequency_offset(self._radio_source.get_center_frequency())
+            
+            # set the tap directory path
+            try:
+                self.set_tap_directory(self._radio_source.get_tap_directory())
+            except FreqListenerError, exc:
+                msg = 'Unable to set tap directory'
+                log.debug(msg)
 
         else:
             msg = 'radio_source must be a RadioSource object'
@@ -163,12 +171,54 @@ class FreqListener(object):
         msg = ('Listener {id} set to radios source'
                ' {rs}').format(rs=radio_source, id=self.get_id())
         log.debug(msg)
-
+        
     def set_tap_directory(self, path):
         """Set the directory where tap files should be written to.
         path -- full path to the directory"""
-        pass
-        # TODO: write the set_tap_directory
+
+        msg = "Tap directory is to be '{p}'.".format(p=path)
+        log.debug(msg)
+
+        if path == None:
+            msg = 'Tap path not set.'
+            raise FreqListenerError(msg)
+        
+        if path in ['.','./']:
+            tmp_tap_directory = os.getcwd()
+        
+        # check if path is absolute
+        if os.path.isabs(path):
+            tmp_tap_directory = path
+        else:
+            # path is relative
+
+            # check if it is to be the current directory
+            if path in ['.','./']:
+                tmp_tap_directory = os.getcwd()   
+                msg = 'Tap directory is cwd'
+                log.debug(msg)
+            else:   
+                tmp_tap_directory = os.path.join(os.getcwd() + path)
+
+
+        #  check if path exists and is writable
+        
+        if not os.path.isdir(tmp_tap_directory):
+            msg = ("Tap directory {td} does not exist or isn't"
+                   " a directory").format(td=tmp_tap_directory)
+            raise FreqListenerError(msg)
+        
+        if not os.access(tmp_tap_directory, os.W_OK):
+            msg = ("Tap directory {td} is not"
+                   " writable").format(td=tmp_tap_directory)
+            raise FreqListenerError(msg)            
+        
+        self._tap_directory = tmp_tap_directory
+
+    def get_supported_modulations(self):
+        """Retrieves the supported modulations"""
+        
+        return self._supported_modulations
 
     def set_frequency(self, frequency):
         """Sets the frequency for the listener.
@@ -228,17 +278,15 @@ class FreqListener(object):
         """Sets the modulation for the listener.
         modulation -- the modulation"""
 
-        acceptable_modulations = ['fm', 'am', 'usb', 'lsb']
-
         modulation = modulation.lower()
 
-        if modulation in acceptable_modulations:
+        if modulation in self._supported_modulations:
             self._modulation = modulation
             msg = 'Modulation set to {i}'.format(i=modulation)
             log.debug(msg)
         else:
             msg = ('modulation must be one of {m}').format(
-                m=' '.join(acceptable_modulations))
+                m=' '.join(self._supported_modulations))
             log.error(msg)
             raise FreqListenerInvalidModulationError(msg)
 
@@ -262,6 +310,11 @@ class FreqListener(object):
         """Set True if the source frequency analyzer is to be enabled,
         false otherwise.
         enable -- boolean (Default is True/enabled)"""
+        
+        if self.get_tap_directory() == None:
+            create_tap = False
+            msg='Tap directory not set. Spectrum analyzer not available'
+            log.warning(msg)
 
         if isinstance(create_tap, bool):
             self._spectrum_analyzer_enable = create_tap
@@ -277,7 +330,7 @@ class FreqListener(object):
         audio_sink -- the audio sink to use"""
         self._audio_sink = audio_sink
 
-    def set_audio_output(self, audio_enable=True):
+    def set_audio_enable(self, audio_enable=True):
         """Set True if audio output is to be enabled, false otherwise.
         enable -- boolean (Default is True/enabled)"""
 
@@ -308,6 +361,10 @@ class FreqListener(object):
     def get_id(self):
         """Returns the frequency listener id."""
         return self._id
+    
+    def get_tap_directory(self):
+        """Return the path to where taps are to be written"""
+        return self._tap_directory
 
     def get_frequency_offset(self):
         """Returns the listener's frequency offset from the radio source's

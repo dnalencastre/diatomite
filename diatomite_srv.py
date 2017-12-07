@@ -28,6 +28,7 @@ import yaml
 import radiosource
 import freqlistener
 import diatomite_aux_classes as dia_aux
+import numpy
 
 def arg_parser():
     """Parse command line arguments.
@@ -79,6 +80,108 @@ def config_parser(conf_file):
 
     return conf
 
+def setup_listeners(radio_source, listeners_conf):
+    """Setup listeners for a source
+    radio_source -- radio source being configured
+    listeners_conf -- listeners configuration"""
+    
+
+    for listeners_key in listeners_conf:
+
+        try:
+            listener_id = listeners_conf[listeners_key]['id']
+        except KeyError, exc:
+            msg = ('FATAL: missing Listener id for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.error(msg)
+            raise Exception(msg)
+
+        listener = freqlistener.FreqListener(listener_id)
+        
+        try:
+            frequency = listeners_conf[listeners_key]['frequency']
+        except KeyError, exc:
+            msg = ('FATAL: missing Frequency definition for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.error(msg)
+            raise Exception(msg)
+        
+        
+        print " FREQ:-{f}-".format(f=frequency)
+        listener.set_frequency(float(frequency))
+
+        try:
+            modulation = listeners_conf[listeners_key]['modulation']
+        except KeyError, exc:
+            msg = ('Missing modulation definition for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.warning(msg)
+            modulation = None        
+        else:
+            try:
+                listener.set_modulation(modulation)
+            except freqlistener.FreqListenerInvalidModulationError, exc:
+                msg = ('Invalid modulation definition for'
+                       ' Listener {rs}: {exc}').format(exc=exc, rs=listener_id)                
+                logging.error(msg)
+                raise Exception(msg)
+
+        try:
+            bandwidth = listeners_conf[listeners_key]['bandwidth']
+        except KeyError, exc:
+            msg = ('FATAL: missing bandwidth definition for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.error(msg)
+            raise Exception(msg)     
+        
+        listener.set_bandwidth(bandwidth)
+        
+        try:
+            threshold = listeners_conf[listeners_key]['level_threshold']
+        except KeyError, exc:
+            msg = ('FATAL: missing threshold definition for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.error(msg)
+            raise Exception(msg)     
+        
+        listener.set_signal_pwr_threshold(threshold)
+        
+        try:
+            audio_enable = listeners_conf[listeners_key]['audio_output']
+        except KeyError, exc:
+            msg = ('Missing audio output definition for'
+                   ' Listener {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=listener_id)
+            logging.warning(msg)
+            modulation = None        
+        else:
+            if audio_enable == 'True' and modulation != None:
+            
+                listener.set_audio_enable(True)
+            else:   
+                listener.set_audio_enable(False)
+                
+            msg = ('Audio output not enabled.'
+                   'modulation:{m}, audio_output:{ao}').format(m=modulation,
+                                                               ao=audio_enable)
+
+        
+        # TODO: add freqyency analyzer enable
+
+        #add to listener to the radio source
+        radio_source.add_frequency_listener(listener)
+
 def setup_probe(probe, probe_conf):
     """Setup the probe
     probe --- the probe object
@@ -88,6 +191,15 @@ def setup_probe(probe, probe_conf):
     # list of supported source types
     # currently only RTL2838_R820T2
     supported_source_types = ['RTL2838_R820T2']
+    
+    try:
+        tap_path = probe_conf['tap_directory']
+    except KeyError, exc:
+        msg = 'Tap directory not configured'
+        logging.info(msg)
+        tap_path = None
+    
+    # TODO: set center frequency
     
     try:
         probe.set_id(probe_conf['id'])
@@ -131,14 +243,43 @@ def setup_probe(probe, probe_conf):
         
         if r_source_type in supported_source_types:
             r_source = radiosource.RTL2838R820T2RadioSource(r_source_id)
+        else:
+            msg = ('Unsupported radio source.'
+                   ' Supported types: {tl}').format(tl=', '.join(supported_source_types))
                 
-        # TODO: add remaingin config to the radio source
+        if tap_path != None:
+            try:
+                r_source.set_tap_directory(tap_path)
+            except radiosource.RadioSourceError, exc:
+                msg = 'Error setting tap directory:{exc}'.format(exc=exc)
+
+        try:
+            frequency = radio_sources_conf[radio_source_key]['frequency']
+        except KeyError, exc:
+            msg = ('FATAL: missing Frequency definition for'
+                   ' radio source {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=radio_source_key)
+            logging.error(msg)
+            raise Exception(msg)
         
-        # TODO: add listeners to the radio source (in separate function)
+        r_source.set_frequency(float(frequency))
+        
+        # add listeners to the radio source 
+        try:
+            listeners_conf = radio_sources_conf[radio_source_key]['listeners']
+        except KeyError, exc:
+            msg = ('Missing listeners definition for'
+                   ' radio Source {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs='listeners')
+            logging.error(msg)
+            raise Exception(msg)
+        
+        setup_listeners(r_source, listeners_conf)
       
         # add the radio sources to the probe
         probe.add_radio_source(r_source)
-
 
 def main():
     """Main processing block for the server"""
@@ -164,6 +305,7 @@ def main():
             msg = ('FATAL: configuration error, missing probe definition'
                    ' Missing key {exc} on configuration file').format(exc=exc)
             raise Exception(msg)
+
     else:
         msg = 'FATAL: configuration error, missing site definition'
         raise Exception(msg)

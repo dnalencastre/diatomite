@@ -48,6 +48,10 @@ class RadioSourceRadioFailureError(Exception):
     pass
 
 
+class RadioSourceError(Exception):
+    """Raised when a RadioSource encounters an error."""
+    pass
+
 class RadioSourceSate(object):
     """Define possible states for a radio a receiver."""
     STATE_PRE_INIT = 0
@@ -99,6 +103,8 @@ class RadioSource(object):
 
     # radio source arguments
     _source_args = ''
+    
+    _tap_directory = None
 
     _radio_state = RadioSourceSate.STATE_PRE_INIT
 
@@ -106,8 +112,6 @@ class RadioSource(object):
 
     _create_fft_tap = False
 
-    # write the taps to the current directory
-    _tap_directory = os.getcwd()
     _freq_analyzer_tap = None
 
     # FFT definitions
@@ -147,6 +151,8 @@ class RadioSource(object):
         self._source_args = "numchan=" + str(1) + " " + ''
 
         self.set_id(radio_source_id)
+        
+        self._radio_init()
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
@@ -156,9 +162,10 @@ class RadioSource(object):
                                   cf=self._center_freq, id=radio_source_id)
         log.debug(msg)
 
+
     def _radio_init(self):
         """Initialize the radio hw."""
-
+ 
         self._gr_top_block = gr.top_block()
         # specific radio initialization to be added on this method on derived
         # classes
@@ -322,7 +329,46 @@ class RadioSource(object):
             msg = 'Frequency id contains contains unacceptable characters'
             log.error(msg)
             raise dia_aux.BadIdError(msg)
+        
+    def set_tap_directory(self, path):
+        """Set the directory where tap files should be written to.
+        path -- full path to the directory"""
+        
+        if path == None:
+            msg = 'Tap path not set.'
+            raise RadioSourceError(msg)
 
+
+            
+        # check if path is absolute
+        if os.path.isabs(path):
+            tmp_tap_directory = path
+            msg = 'Tap directory is absolute'
+            log.debug(msg)
+        else:
+            # path is relative
+        
+            # check if it is to be the current directory
+            if path in ['.','./']:
+                tmp_tap_directory = os.getcwd()   
+                msg = 'Tap directory is cwd'
+                log.debug(msg)    
+            else:   
+                tmp_tap_directory = os.path.join(os.getcwd() + path)
+
+        #  check if path exists and is writable        
+        if not os.path.isdir(tmp_tap_directory):
+            msg = ("Tap directory {td} does not exist or isn't"
+                   " a directory").format(td=tmp_tap_directory)
+            raise RadioSourceError(msg)
+        
+        if not os.access(tmp_tap_directory, os.W_OK):
+            msg = ("Tap directory {td} is not"
+                   " writable").format(td=tmp_tap_directory)
+            raise RadioSourceError(msg)            
+
+        self._tap_directory = tmp_tap_directory
+        
     def set_frequency(self, frequency):
         """Set the source's center frequency
         frequency -- frequency in Hz (integer)"""
@@ -371,6 +417,11 @@ class RadioSource(object):
         """Set True if the source frequency analyzer is to be enabled,
         false otherwise.
         enable -- boolean (Default is True/enabled)"""
+
+        if self.get_tap_directory() == None:
+            create_tap = False
+            msg='Tap directory not set. Spectrum analyzer not available'
+            log.warning(msg)
 
         if isinstance(create_tap, bool):
             self._spectrum_analyzer_enable = create_tap
@@ -442,6 +493,10 @@ class RadioSource(object):
     def get_bandwidth_capability(self):
         """Return the bandwidth capability for this radio source."""
         return self._cap_bw
+
+    def get_tap_directory(self):
+        """Return the path to where taps are to be written"""
+        return self._tap_directory
 
     def get_type(self):
         """Return the type of this radio source."""

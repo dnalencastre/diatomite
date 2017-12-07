@@ -4,28 +4,45 @@ site:
     # each site must have one probe
     probe:
         id: "test probe 1"
+        # tap_directory : path to the directory where taps will be written
+        # either an absolute path or relative to the directory where the
+        # server runs (when a leadint "/" is missing, a relative tap
+        # is assumed)
+        tap_directory: "taps"
         # each probe must have at least one radio source
         RadioSources:
             radiosource1:
                 id: "rs1"
                 type: "RTL2838_R820T2"
+                # center frequency for the radios source
+                # this should be chosen in order to allow all the
+                # listeners (and their bandwiths) to fit within
+                # Hardware's listenening range.
+                frequency: "90e6"
                 # each radio source must have at least one listener
                 listeners:
                     listener1:
-                        id: "ln1"
+                        id: "ln11"
+                        # frequency in Hz
+                        # acceptable formats:
+                        # "89.5e6" or "89500000"
                         frequency: "89.5e6"
                         modulation: "FM"
                         bandwidth: "200000"
                         level_threshold: "-65"
+                        audio_output: "True"
                     listener2:
-                        id: "ln2"
-                        frequency: "90e6"
+                        id: "ln12"
+                        frequency: "90000000"
                         bandwidth: "200000"
                         level_threshold: "-65"
             radiosource2:
                 id: "rs2"
                 type: "RTL2838_R820T2"
+                frequency: "102e6"                
                 listeners:
                     listener1:
-                        id: "ln1"
-                        frequency: "97e6"
+                        id: "ln21"
+                        frequency: "97000000"
+                        bandwidth: "200000"
+                        level_threshold: "-65"
