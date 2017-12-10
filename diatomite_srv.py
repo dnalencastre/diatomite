@@ -230,6 +230,9 @@ def setup_probe(probe, probe_conf):
                    ' configuration file').format(exc=exc, rs=radio_source_key)
             logging.error(msg)
             raise Exception(msg)
+
+        
+
         
         try:
             r_source_id =  radio_sources_conf[radio_source_key]['id']
@@ -240,13 +243,21 @@ def setup_probe(probe, probe_conf):
                    ' configuration file').format(exc=exc, rs=radio_source_key)
             logging.error(msg)
             raise Exception(msg)
+
         
-        if r_source_type in supported_source_types:
-            r_source = radiosource.RTL2838R820T2RadioSource(r_source_id)
-        else:
-            msg = ('Unsupported radio source.'
-                   ' Supported types: {tl}').format(tl=', '.join(supported_source_types))
-                
+        # check if the radio source type is valid and set the class accordingly
+        supported_devs = radiosource.RadioSourceSupportedDevs()
+        try:
+            radio_source_class = supported_devs.get_dev_class(r_source_type)
+        except radiosource.RadioSourceSupportedDevsError, exc:
+            raise
+    
+        # set the class to be use:
+        msg = 'Will use radio source class "{rsc}"'.format(rsc=radio_source_class)
+        logging.debug(msg)
+        rs_class_ = getattr(radiosource, radio_source_class)
+        r_source = rs_class_(r_source_id)
+
         if tap_path != None:
             try:
                 r_source.set_tap_directory(tap_path)

@@ -52,13 +52,40 @@ class RadioSourceError(Exception):
     """Raised when a RadioSource encounters an error."""
     pass
 
+class RadioSourceSupportedDevsError(Exception):
+    """Raised when a RadioSourceSupportedDevs encounters an error."""
+    pass
+
+
 class RadioSourceSate(object):
     """Define possible states for a radio a receiver."""
     STATE_PRE_INIT = 0
     STATE_OK = 1
     STATE_FAILED = 2
+    
+    
 
-
+class RadioSourceSupportedDevs(object):
+    """Define the supported rf devices and their classes"""
+    
+    _supported_dev_dict = {'RTL2838_R820T2':{'class':'RTL2838R820T2RadioSource'}}
+    
+    def get_supported_devs(self):
+        """returns a list of supported devices."""
+        
+        return self._supported_dev_dict.keys()
+    
+    def get_dev_class(self, dev_name):
+        """Returns a string with the class name for a device."""
+    
+        if dev_name in self._supported_dev_dict.keys():
+            return self._supported_dev_dict[dev_name]['class']
+        else:
+            msg = ('Unsupported radio device {rd}.'
+                   ' Choose one of:{dl}').format(rd=dev_name,
+                                                 dl=self.get_supported_devs())
+            raise RadioSourceSupportedDevsError(msg)
+    
 class RadioSource(object):
     """Define a radio source.
     This usually relates to the radio hardware
@@ -844,6 +871,45 @@ class RTL2838R820T2RadioSource(RadioSource):
             raise
 
         radio_init_sucess = True
+        
+        # TODO: remove
+        # get device lists
+        osmodevicelist = osmosdr.device_find()
+        import inspect
+        print '||||||||||||||||||||||||||||||||||||||||||||'
+        print 'osmo devices:{dl}'.format(dl=osmodevicelist)
+        for item in osmodevicelist:
+            print '   item:{i}, type:{t}.'.format(i=item, t=type(item))
+            
+            l = dir(item)
+            print '   ----> l:{l}'.format(l=l)
+
+            osmodevitems = item.items()
+            print '   ----> items:{k}'.format(k=osmodevitems)
+ 
+            osmodevalues = item.values()
+            print '   ----> values:{k}'.format(k=osmodevalues)
+            
+#             ub = item.upper_bound()
+#             lb = item.lower_bound()
+#             print '   ----> ub:{ub}, lb:{lb}.'.format(ub=ub, lb=lb)
+            
+            osmodevkeys = item.keys()
+            print '   ----> k:{k}'.format(k=osmodevkeys)
+            print '   ----> label:{l}'.format(l=item['label'])
+ 
+            if 'rtl' in item.keys():
+                print '   ----> rtl:{l}'.format(l=item['rtl'])
+                
+                
+                print '   -----------------------------------------------'
+                print '   ###inspect>{i}'.format(i=inspect.getmembers(item))
+                print '   ###doc>{i}'.format(i=inspect.getdoc(item))
+    #             print '   ###argspecs>{i}'.format(i=inspect.getargspec(item))
+    #             print '   ###argvalues>{i}'.format(i=inspect.getargvalues(item))
+    #             print '   ###callargs>{i}'.format(i=inspect.getcallargs(item))
+       
+        print '||||||||||||||||||||||||||||||||||||||||||||'
 
         if radio_init_sucess:
             self._radio_source.set_sample_rate(self.get_bandwidth_capability())
