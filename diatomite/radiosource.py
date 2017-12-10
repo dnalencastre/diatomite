@@ -871,45 +871,6 @@ class RTL2838R820T2RadioSource(RadioSource):
             raise
 
         radio_init_sucess = True
-        
-        # TODO: remove
-        # get device lists
-        osmodevicelist = osmosdr.device_find()
-        import inspect
-        print '||||||||||||||||||||||||||||||||||||||||||||'
-        print 'osmo devices:{dl}'.format(dl=osmodevicelist)
-        for item in osmodevicelist:
-            print '   item:{i}, type:{t}.'.format(i=item, t=type(item))
-            
-            l = dir(item)
-            print '   ----> l:{l}'.format(l=l)
-
-            osmodevitems = item.items()
-            print '   ----> items:{k}'.format(k=osmodevitems)
- 
-            osmodevalues = item.values()
-            print '   ----> values:{k}'.format(k=osmodevalues)
-            
-#             ub = item.upper_bound()
-#             lb = item.lower_bound()
-#             print '   ----> ub:{ub}, lb:{lb}.'.format(ub=ub, lb=lb)
-            
-            osmodevkeys = item.keys()
-            print '   ----> k:{k}'.format(k=osmodevkeys)
-            print '   ----> label:{l}'.format(l=item['label'])
- 
-            if 'rtl' in item.keys():
-                print '   ----> rtl:{l}'.format(l=item['rtl'])
-                
-                
-                print '   -----------------------------------------------'
-                print '   ###inspect>{i}'.format(i=inspect.getmembers(item))
-                print '   ###doc>{i}'.format(i=inspect.getdoc(item))
-    #             print '   ###argspecs>{i}'.format(i=inspect.getargspec(item))
-    #             print '   ###argvalues>{i}'.format(i=inspect.getargvalues(item))
-    #             print '   ###callargs>{i}'.format(i=inspect.getcallargs(item))
-       
-        print '||||||||||||||||||||||||||||||||||||||||||||'
 
         if radio_init_sucess:
             self._radio_source.set_sample_rate(self.get_bandwidth_capability())

@@ -109,10 +109,6 @@ def setup_listeners(radio_source, listeners_conf):
                    ' configuration file').format(exc=exc, rs=listener_id)
             logging.error(msg)
             raise Exception(msg)
-        
-        
-        print " FREQ:-{f}-".format(f=frequency)
-        listener.set_frequency(float(frequency))
 
         try:
             modulation = listeners_conf[listeners_key]['modulation']
@@ -219,7 +215,6 @@ def setup_probe(probe, probe_conf):
 
     # configure radio sources and add them to the probe
     for radio_source_key in radio_sources_conf:
-        print radio_source_key
         
         try:
             r_source_type = radio_sources_conf[radio_source_key]['type']
