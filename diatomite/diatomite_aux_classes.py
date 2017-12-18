@@ -29,6 +29,7 @@ import sys
 from string import ascii_letters, digits
 import freqlistener
 import radiosource
+from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
 
 
 class FreqListenerListIdNotUniqueError(Exception):
@@ -273,7 +274,18 @@ class FreqListenerList(list):
 
         return res
 
+    def get_listener_by_id(self, lid):
+        """Return a listener by id
+        lid -- the id to search for"""
 
+        res = None
+
+        for listener in self:
+            this_id = listener.get_id()
+            if this_id == lid:
+                return listener
+
+        return res
 
 
 class RadioSourceList(list):
@@ -313,6 +325,17 @@ class RadioSourceList(list):
 
         return res
 
+    def get_radio_source_by_id(self, rsid):
+        """Return a radio source by id
+        rsid -- the id to search for"""
+
+        res = None
+
+        for radio_source in self:
+            this_id = radio_source.get_id()
+            if this_id == rsid:
+                return radio_source
+        return res
 
 class Location(object):
     """Define a location."""
@@ -347,32 +370,162 @@ class DiatomiteProbe(object):
     _id = ''
     _site = DiatomiteSite()
     _radio_source_list = RadioSourceList()
-    
-    def set_id(self,id):
+    _radio_source_sp_handle = []
+
+    # pipe inputs for each radio source
+    # index is the radio source ID
+    _source_inputs = {}
+
+    # pipe outputs for each radio source
+    # index is the radio source ID
+    _source_outputs = {}
+
+    manager = multiprocessing.Manager()
+    _source_output_queue = manager.Queue()
+
+    def set_id(self, pid):
         """Set the id of this probe
-        id -- id of the probe"""
-        self._id = id
-        
+        pid -- id of the probe"""
+        self._id = pid
+
     def get_id(self):
         """Return the id of this probe"""
-        
+
         return self._id
 
     def add_radio_source(self, radio_source):
         """Add a FreqListener to this Radio source's listener list.
         listener -- FreqListener"""
 
-        # TODO: check for duplicate ids when adding
+        # pass the output queue to the source
+        radio_source.set_ouptut_queue(self._source_output_queue)
 
-        self._radio_source_list.append(radio_source)
+        try:
+            self._radio_source_list.append(radio_source)
+        except RadioSourceListIdNotUniqueError:
+            msg = ('FATAL:Radio source id {rsid} already present on this'
+                   ' Probe!!').format(rsid=radio_source.get_identifier())
+            log.error(msg)
+            raise
+
         msg = ("RadioSource {i} added to probe's radio source"
                " list").format(i=radio_source)
         log.debug(msg)
 
     def start_sources(self):
         """Start all the sources"""
-        pass
-        # TODO: add method to start all radio sources
+
+        _source_outputs2 = {}
+
+        # start the radio source subprocesses and get handles
+        for radio_source in self._radio_source_list:
+            # start
+            radio_source.start()
+            radio_source_id = radio_source.get_id()
+            self._source_inputs[radio_source_id] = radio_source.get_input_pipe()
+            self._source_outputs[radio_source_id] = radio_source.get_output_pipe()
+            self._radio_source_sp_handle.append(radio_source.get_subprocess())
+
+            _source_outputs2[radio_source_id] = self._source_outputs[radio_source_id]
+
+        # listen on the pipes
+        input_pipe_list = list(self._source_inputs.values())
+
+        self._monitor_radio_sources()
+
+
+    def _monitor_radio_sources(self):
+        """Monitor radio source output queue
+        Gets messages from the monitor source output queue and processes them."""
+
+        while True:
+
+            # get stuff from queue
+            # messages should be in a format:
+            # {radio source id}:{listener_id}:....
+            # only radio source id is mandatory
+            queue_item = self._source_output_queue.get()
+
+            msg = "got a queue item:{qi}".format(qi=queue_item)
+            log.debug(msg)
+
+            msg_items = queue_item.split(':')
+            msg_item_len = len(msg_items)
+
+            if msg_item_len == 1:
+                # only got the id of the radio source
+                # shouldn't happen
+
+                msg = ('Received message in queue that is malformed:'
+                       ' {data}').format(data=msg_items[0])
+
+                log.warning(msg)
+            elif msg_item_len > 1:
+                # got a message from the radio source
+
+                # check if it is a known radio source
+                if msg_items[0] in self._radio_source_list.get_radio_source_id_list():
+
+                    rid = msg_items[0]
+
+                    # check if the message is from a frequency listener on the source
+                    rsource = self._radio_source_list.get_radio_source_by_id(rid)
+                    if msg_items[1] in rsource.get_listener_id_list():
+
+                        lid = msg_items[1]
+                        msg = ('Received message from radio source {rid}:'
+                               'Listener {lid}: data:'
+                               '{data}').format(rid=rid,
+                                                lid=lid,
+                                                data=msg_items[2:])
+                        log.debug(msg)
+
+                        # check if is a know msg tag from a receiver
+                        listener_msg_tags = ['SIG_STATUS']
+                        if msg_items[2] in listener_msg_tags:
+                            if msg_items[2] == 'SIG_STATUS':
+
+                                sig_state = msg_items[3]
+                                sig_level = msg_items[4]
+                                msg = ('Received message from radio source'
+                                       ' {rid}, Listener {lid}: SIGNAL {state}'
+                                       ', level:{lvl} DBm').format(rid=rid,
+                                                                   lid=lid,
+                                                                   state=sig_state,
+                                                                   lvl=sig_level)
+                                log.debug(msg)
+
+                                # TODO: send this to persistent data/API
+
+                        else:
+                            # unknown message from listener
+                            msg = ('Received unknown message from source {rid},'
+                                   ' Listener {lid}: data:'
+                                   '{data}').format(rid=rid,
+                                                    lid=lid,
+                                                    data=msg_items[3:])
+                            log.warning(msg)
+                    else:
+                        # message is not from a listener
+                        radio_receiver_msg_tags = []
+
+                        # check if is a know msg tag from the receiver
+                        if msg_items[1] in radio_receiver_msg_tags:
+
+                            # process the message tag
+                            pass
+                        else:
+                            msg = ('Received unknown message from source {rid}:'
+                                   'data:'
+                                   '{data}').format(rid=msg_items[0],
+                                                    data=msg_items[1:])
+                            log.warning(msg)
+
+                else:
+                    # not a know radio source
+                    msg = ('Received a message from an unknown'
+                           ' source:{data}').format(data=msg_items)
+                    log.warning(msg)
 
     def stop_sources(self):
         """stop all the sources"""

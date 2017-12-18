@@ -28,7 +28,6 @@ import yaml
 import radiosource
 import freqlistener
 import diatomite_aux_classes as dia_aux
-import numpy
 
 def arg_parser():
     """Parse command line arguments.
@@ -84,7 +83,7 @@ def setup_listeners(radio_source, listeners_conf):
     """Setup listeners for a source
     radio_source -- radio source being configured
     listeners_conf -- listeners configuration"""
-    
+
 
     for listeners_key in listeners_conf:
 
@@ -99,7 +98,7 @@ def setup_listeners(radio_source, listeners_conf):
             raise Exception(msg)
 
         listener = freqlistener.FreqListener(listener_id)
-        
+
         try:
             frequency = listeners_conf[listeners_key]['frequency']
         except KeyError, exc:
@@ -110,6 +109,12 @@ def setup_listeners(radio_source, listeners_conf):
             logging.error(msg)
             raise Exception(msg)
 
+        msg = ('Frequency for listener "{id}"'
+               ' configured as: {f} Hz').format(id=listener_id, f=frequency)
+        logging.debug(msg)
+
+        listener.set_frequency(frequency)
+
         try:
             modulation = listeners_conf[listeners_key]['modulation']
         except KeyError, exc:
@@ -118,13 +123,13 @@ def setup_listeners(radio_source, listeners_conf):
                    ' Missing key {exc} on'
                    ' configuration file').format(exc=exc, rs=listener_id)
             logging.warning(msg)
-            modulation = None        
+            modulation = None
         else:
             try:
                 listener.set_modulation(modulation)
             except freqlistener.FreqListenerInvalidModulationError, exc:
                 msg = ('Invalid modulation definition for'
-                       ' Listener {rs}: {exc}').format(exc=exc, rs=listener_id)                
+                       ' Listener {rs}: {exc}').format(exc=exc, rs=listener_id)
                 logging.error(msg)
                 raise Exception(msg)
 
@@ -136,10 +141,10 @@ def setup_listeners(radio_source, listeners_conf):
                    ' Missing key {exc} on'
                    ' configuration file').format(exc=exc, rs=listener_id)
             logging.error(msg)
-            raise Exception(msg)     
-        
+            raise Exception(msg)
+
         listener.set_bandwidth(bandwidth)
-        
+
         try:
             threshold = listeners_conf[listeners_key]['level_threshold']
         except KeyError, exc:
@@ -148,10 +153,10 @@ def setup_listeners(radio_source, listeners_conf):
                    ' Missing key {exc} on'
                    ' configuration file').format(exc=exc, rs=listener_id)
             logging.error(msg)
-            raise Exception(msg)     
-        
+            raise Exception(msg)
+
         listener.set_signal_pwr_threshold(threshold)
-        
+
         try:
             audio_enable = listeners_conf[listeners_key]['audio_output']
         except KeyError, exc:
@@ -160,19 +165,19 @@ def setup_listeners(radio_source, listeners_conf):
                    ' Missing key {exc} on'
                    ' configuration file').format(exc=exc, rs=listener_id)
             logging.warning(msg)
-            modulation = None        
+            modulation = None
+            listener.set_audio_enable(False)
         else:
             if audio_enable == 'True' and modulation != None:
-            
+
                 listener.set_audio_enable(True)
-            else:   
+            else:
                 listener.set_audio_enable(False)
-                
+
             msg = ('Audio output not enabled.'
                    'modulation:{m}, audio_output:{ao}').format(m=modulation,
                                                                ao=audio_enable)
 
-        
         # TODO: add freqyency analyzer enable
 
         #add to listener to the radio source
@@ -183,20 +188,16 @@ def setup_probe(probe, probe_conf):
     probe --- the probe object
     probe_conf -- probe configuration
     """
-    
-    # list of supported source types
-    # currently only RTL2838_R820T2
-    supported_source_types = ['RTL2838_R820T2']
-    
+
     try:
         tap_path = probe_conf['tap_directory']
     except KeyError, exc:
         msg = 'Tap directory not configured'
         logging.info(msg)
         tap_path = None
-    
+
     # TODO: set center frequency
-    
+
     try:
         probe.set_id(probe_conf['id'])
     except KeyError, exc:
@@ -215,7 +216,7 @@ def setup_probe(probe, probe_conf):
 
     # configure radio sources and add them to the probe
     for radio_source_key in radio_sources_conf:
-        
+
         try:
             r_source_type = radio_sources_conf[radio_source_key]['type']
         except KeyError, exc:
@@ -226,11 +227,8 @@ def setup_probe(probe, probe_conf):
             logging.error(msg)
             raise Exception(msg)
 
-        
-
-        
         try:
-            r_source_id =  radio_sources_conf[radio_source_key]['id']
+            r_source_id = radio_sources_conf[radio_source_key]['id']
         except KeyError, exc:
             msg = ('FATAL: missing Radio Source id for'
                    ' radio Source {rs}.'
@@ -239,14 +237,13 @@ def setup_probe(probe, probe_conf):
             logging.error(msg)
             raise Exception(msg)
 
-        
         # check if the radio source type is valid and set the class accordingly
         supported_devs = radiosource.RadioSourceSupportedDevs()
         try:
             radio_source_class = supported_devs.get_dev_class(r_source_type)
         except radiosource.RadioSourceSupportedDevsError, exc:
             raise
-    
+
         # set the class to be use:
         msg = 'Will use radio source class "{rsc}"'.format(rsc=radio_source_class)
         logging.debug(msg)
@@ -268,10 +265,23 @@ def setup_probe(probe, probe_conf):
                    ' configuration file').format(exc=exc, rs=radio_source_key)
             logging.error(msg)
             raise Exception(msg)
-        
+
         r_source.set_frequency(float(frequency))
-        
-        # add listeners to the radio source 
+
+        try:
+            audio_enable = radio_sources_conf[radio_source_key]['audio_output']
+        except KeyError, exc:
+            msg = ('Missing audio output definition for'
+                   ' radio source {rs}.'
+                   ' Missing key {exc} on'
+                   ' configuration file').format(exc=exc, rs=r_source_id)
+            logging.warning(msg)
+            r_source.set_audio_enable(False)
+        else:
+            if audio_enable == 'True':
+                r_source.set_audio_enable(False)
+
+        # add listeners to the radio source
         try:
             listeners_conf = radio_sources_conf[radio_source_key]['listeners']
         except KeyError, exc:
@@ -281,11 +291,16 @@ def setup_probe(probe, probe_conf):
                    ' configuration file').format(exc=exc, rs='listeners')
             logging.error(msg)
             raise Exception(msg)
-        
+
         setup_listeners(r_source, listeners_conf)
-      
+
         # add the radio sources to the probe
         probe.add_radio_source(r_source)
+
+
+    print " AQUI AQUI AQUI AQUI AQUI"
+    probe.start_sources()
+    print " AQUI22 AQUI22 AQUI22 AQUI22 AQUI22"
 
 def main():
     """Main processing block for the server"""
@@ -319,7 +334,7 @@ def main():
     this_probe = dia_aux.DiatomiteProbe()
 
     setup_probe(this_probe, probe_conf)
-    
+
     # TODO: setup API
 
 if __name__ == "__main__":

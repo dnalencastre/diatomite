@@ -21,11 +21,11 @@
 """
 
 import os
-import logging as log
 import datetime
 import threading
 from string import ascii_letters, digits
 from operator import isNumberType
+import logging
 import numpy
 from gnuradio import gr
 from gnuradio import blocks
@@ -63,8 +63,8 @@ class FreqListener(object):
 
     # modulation
     _modulation = ''
-    
-    _supported_modulations = ['fm','am']
+
+    _supported_modulations = ['fm', 'am']
 
     # TODO: unify fft probe and tap initialization and teardown
 
@@ -91,7 +91,7 @@ class FreqListener(object):
     _spectrum_analyzer_enable = False
 
     _freq_analyzer_tap = None
-    
+
     _tap_directory = None
 
     _status = 'PRE_INIT'
@@ -131,16 +131,16 @@ class FreqListener(object):
 
         if listener_id == '':
             msg = 'Frequency id is empty'
-            log.error(msg)
+            logging.error(msg)
             raise dia_aux.BadIdError(msg)
         if all(character in ascii_letters+digits+'_'+'-'
                for character in listener_id):
             self._id = listener_id.lower()
             msg = 'id set to {i}'.format(i=listener_id.lower())
-            log.debug(msg)
+            logging.debug(msg)
         else:
             msg = 'Frequency id contains can only contain AZaz09-_'
-            log.error(msg)
+            logging.error(msg)
             raise dia_aux.BadIdError(msg)
 
     def set_radio_source(self, radio_source):
@@ -157,35 +157,35 @@ class FreqListener(object):
 
             # set the frequency offset
             self.set_frequency_offset(self._radio_source.get_center_frequency())
-            
+
             # set the tap directory path
             try:
                 self.set_tap_directory(self._radio_source.get_tap_directory())
             except FreqListenerError, exc:
-                msg = 'Unable to set tap directory'
-                log.debug(msg)
+                msg = 'Unable to set tap directory. {exc}'.format(exc=exc)
+                logging.debug(msg)
 
         else:
             msg = 'radio_source must be a RadioSource object'
             raise TypeError(msg)
         msg = ('Listener {id} set to radios source'
                ' {rs}').format(rs=radio_source, id=self.get_id())
-        log.debug(msg)
-        
+        logging.debug(msg)
+
     def set_tap_directory(self, path):
         """Set the directory where tap files should be written to.
         path -- full path to the directory"""
 
         msg = "Tap directory is to be '{p}'.".format(p=path)
-        log.debug(msg)
+        logging.debug(msg)
 
-        if path == None:
+        if path is None:
             msg = 'Tap path not set.'
             raise FreqListenerError(msg)
-        
-        if path in ['.','./']:
+
+        if path in ['.', './']:
             tmp_tap_directory = os.getcwd()
-        
+
         # check if path is absolute
         if os.path.isabs(path):
             tmp_tap_directory = path
@@ -193,31 +193,31 @@ class FreqListener(object):
             # path is relative
 
             # check if it is to be the current directory
-            if path in ['.','./']:
-                tmp_tap_directory = os.getcwd()   
+            if path in ['.', './']:
+                tmp_tap_directory = os.getcwd()
                 msg = 'Tap directory is cwd'
-                log.debug(msg)
-            else:   
+                logging.debug(msg)
+            else:
                 tmp_tap_directory = os.path.join(os.getcwd() + path)
 
 
         #  check if path exists and is writable
-        
+
         if not os.path.isdir(tmp_tap_directory):
             msg = ("Tap directory {td} does not exist or isn't"
                    " a directory").format(td=tmp_tap_directory)
             raise FreqListenerError(msg)
-        
+
         if not os.access(tmp_tap_directory, os.W_OK):
             msg = ("Tap directory {td} is not"
                    " writable").format(td=tmp_tap_directory)
-            raise FreqListenerError(msg)            
-        
+            raise FreqListenerError(msg)
+
         self._tap_directory = tmp_tap_directory
 
     def get_supported_modulations(self):
         """Retrieves the supported modulations"""
-        
+
         return self._supported_modulations
 
     def set_frequency(self, frequency):
@@ -229,20 +229,28 @@ class FreqListener(object):
         rs_lower_freq = radio_spectrum.get_lower_frequency()
         rs_upper_freq = radio_spectrum.get_upper_frequency()
 
+        msg = ('Requested frequency for listener "{id}":'
+               ' {f} Hz').format(id=self.get_id(), f=frequency)
+        logging.debug(msg)
+
         if not float(frequency).is_integer():
             msg = 'Frequency is not a whole number'
-            log.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
-        elif frequency < rs_lower_freq or frequency > rs_upper_freq:
-            msg = ('Frequency must be above {fl} hz '
-                   'and below {fu} hz').format(fl=rs_lower_freq,
+
+        elif frequency < rs_lower_freq and frequency > rs_upper_freq:
+            msg = ('Selected frequency ({f} hz) must be above {fl} hz '
+                   'and below {fu} Hz').format(f=frequency,
+                                               fl=rs_lower_freq,
                                                fu=rs_upper_freq)
-            log.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
         else:
-            self._frequency = int(frequency)
+            # As the frequency may be expressed as a string of float number
+            # convert it from string to float to int
+            self._frequency = int(float(frequency))
             msg = 'Frequency set to {i}'.format(i=frequency)
-            log.debug(msg)
+            logging.debug(msg)
 
     def set_frequency_offset(self, radio_source_center_frequency):
         """Set the listener's offset frequency from the radio source's center
@@ -254,7 +262,7 @@ class FreqListener(object):
                                   self._frequency) * - 1
 
         msg = 'Frequency offset set to {i}'.format(i=self._frequency_offset)
-        log.debug(msg)
+        logging.debug(msg)
 
         # TODO: may need to notify working parts of the radio source
 
@@ -263,16 +271,16 @@ class FreqListener(object):
         bandwidth -- the bandwidth in Hz (integer)"""
         if not float(bandwidth).is_integer():
             msg = 'Bandwidth is not a whole number'
-            log.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
         elif bandwidth < 1:
             msg = 'Bandwidth must be ate least 1 hz'
-            log.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
         else:
             self._bandwidth = int(bandwidth)
             msg = 'Bandwidth set to {i}'.format(i=bandwidth)
-            log.debug(msg)
+            logging.debug(msg)
 
     def set_modulation(self, modulation):
         """Sets the modulation for the listener.
@@ -283,11 +291,11 @@ class FreqListener(object):
         if modulation in self._supported_modulations:
             self._modulation = modulation
             msg = 'Modulation set to {i}'.format(i=modulation)
-            log.debug(msg)
+            logging.debug(msg)
         else:
             msg = ('modulation must be one of {m}').format(
                 m=' '.join(self._supported_modulations))
-            log.error(msg)
+            logging.error(msg)
             raise FreqListenerInvalidModulationError(msg)
 
     def _set_gr_top_block(self, gr_top_block):
@@ -304,17 +312,17 @@ class FreqListener(object):
 
         self._gr_top_block = gr_top_block
         msg = 'Top block set.'
-        log.debug(msg)
+        logging.debug(msg)
 
     def set_spectrum_analyzer_tap_enable(self, create_tap=True):
         """Set True if the source frequency analyzer is to be enabled,
         false otherwise.
         enable -- boolean (Default is True/enabled)"""
-        
-        if self.get_tap_directory() == None:
+
+        if self.get_tap_directory() is None:
             create_tap = False
-            msg='Tap directory not set. Spectrum analyzer not available'
-            log.warning(msg)
+            msg = 'Tap directory not set. Spectrum analyzer not available'
+            logging.warning(msg)
 
         if isinstance(create_tap, bool):
             self._spectrum_analyzer_enable = create_tap
@@ -323,7 +331,7 @@ class FreqListener(object):
             raise TypeError(msg)
         msg = ('Radio source {id} FFT tap creation set to'
                ' {v}').format(v=create_tap, id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def set_audio_sink(self, audio_sink):
         """Set the audio sink for sound output
@@ -341,7 +349,7 @@ class FreqListener(object):
             raise TypeError(msg)
         msg = ('Radio source {id} audio output enabled set to'
                ' {v}').format(v=audio_enable, id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def set_signal_pwr_threshold(self, pwr_threshold):
         """ set the threshold above which the signal is considered present
@@ -361,7 +369,7 @@ class FreqListener(object):
     def get_id(self):
         """Returns the frequency listener id."""
         return self._id
-    
+
     def get_tap_directory(self):
         """Return the path to where taps are to be written"""
         return self._tap_directory
@@ -443,11 +451,11 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting input filter to rational resampler'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise
 
         msg = 'Input filter connected to rational resampler.'
-        log.debug(msg)
+        logging.debug(msg)
 
         self._freq_translation_filter_output = (
             grfilter.freq_xlating_fir_filter_ccc(self._decimation,
@@ -460,14 +468,14 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting rational resampler to output filter'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise
 
         msg = 'Input rational resampler connected to output filter.'
-        log.debug(msg)
+        logging.debug(msg)
 
         msg = 'Frequency translation set.'
-        log.debug(msg)
+        logging.debug(msg)
 
     def get_spectrum_analyser_tap_enable(self):
         """Return True if the spectrum analyser tap is
@@ -491,11 +499,11 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting radio source to filter with'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise
 
         msg = 'Frequency translation connected to source.'
-        log.debug(msg)
+        logging.debug(msg)
 
     def _setup_rf_fft(self):
         """Setup an fft to check the RF status."""
@@ -513,12 +521,12 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed setting up fft for listener {id} with'
                    ' {m}').format(id=self.get_id(), m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         msg = ('Listener {id} FFT set up '
                'completed.').format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
         # connect the fft to the freq translation filter
         try:
@@ -527,11 +535,11 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed to connect the fft to freq translation, with:'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         msg = 'FFT connected to Frequency translation.'
-        log.debug(msg)
+        logging.debug(msg)
 
     def _check_signal_present(self, fft_val):
         """Check if the signal is present by comparing the power to the power
@@ -560,19 +568,35 @@ class FreqListener(object):
 
     def notify_signal_present(self, signal_level):
         """Notify that the signal is present and the current level
-        signal_level -- the signal level in DBm"""
+        signal_level -- the signal level in DBm
+        Passes a notification to the receiver of the format
+            '{listener_id}:SIG_STATUS:PRESENT:{level as a number}'"""
 
-        msg = 'Signal is PRESENT. Level {lvl} DBm'.format(lvl=signal_level)
-        log.debug(msg)
-        # TODO: pass the notification to the receiver
+        my_id = self.get_id()
+
+        msg = ('{i}:Sending signal PRESENT notification. '
+               'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
+        logging.debug(msg)
+
+        out_msg = '{i}:SIG_STATUS:PRESENT:{lvl}'.format(i=my_id, lvl=signal_level)
+        # pass the notification to the receiver
+        self._radio_source.send_data(out_msg)
 
     def notify_signal_absent(self, signal_level):
         """Notify that the signal is absent and the current level
-        signal_level -- the signal level in DBm"""
+        signal_level -- the signal level in DBm
+        Passes a notification to the receiver of the format
+            'SIG_STATUS:ABSENT:{level as a number}'"""
 
-        msg = 'Signal is ABSENT. Level {lvl} DBm'.format(lvl=signal_level)
-        log.debug(msg)
-        # TODO: pass the notification to the receiver
+        my_id = self.get_id()
+
+        msg = ('{i}:Sending signal ABSENT notification. '
+               'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
+        logging.debug(msg)
+
+        out_msg = '{i}:SIG_STATUS:ABSENT:{lvl}'.format(i=my_id, lvl=signal_level)
+        # pass the notification to the receiver
+        self._radio_source.send_data(out_msg)
 
     def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
@@ -603,7 +627,7 @@ class FreqListener(object):
                 self._freq_analyzer_tap.update_value(tap_value)
 
                 msg = 'updating data tap'
-                log.debug(msg)
+                logging.debug(msg)
 
             stop_event.wait(1.0 / self._probe_poll_rate)
 
@@ -615,17 +639,17 @@ class FreqListener(object):
         file already exists), tap output thread will not be started."""
 
         msg = 'Setting up fft tap.'
-        log.debug(msg)
+        logging.debug(msg)
 
         try:
             self._freq_analyzer_tap = dia_aux.DataTap(self.get_id())
         except Exception, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
-            log.error(msg)
+            logging.error(msg)
             raise
 
         msg = 'Listener {id} FFT tap setup done.'.format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def _teardown_freq_analyzer_tap(self):
         """Cleanup the live fft values tap.
@@ -643,7 +667,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed to create fft probe, with:'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         # connect the signal probe to the fft
@@ -653,12 +677,12 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed to connect the fft to freq translation, with:'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         msg = ('Listener {id}, Launching fft data retrieval'
                ' thread.').format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
         # set the fft retrieval on it's own thread
         self._retrieve_fft_thread = threading.Thread(target=self._retrieve_fft,
@@ -669,7 +693,7 @@ class FreqListener(object):
 
         msg = ('Listener {id} signal probe setup'
                ' done.').format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def _stop_signal_probe(self):
         """Stop the fft data probe"""
@@ -686,7 +710,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed configuring frequency translation with'
                    ' {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         # connect frequency translator to source
@@ -695,7 +719,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed connecting frequency translation to source'
                    'with {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         # setup fft and connect it to frequency translator
@@ -704,7 +728,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed to setup RF FFT'
                    'with {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         # handle the fft tap creation
@@ -716,7 +740,7 @@ class FreqListener(object):
             except Exception, exc:
                 msg = ('Failed to setup fft tap'
                        'with {m}').format(m=str(exc))
-                log.debug(msg)
+                logging.debug(msg)
                 raise Exception(msg)
 
         # obtain the fft values
@@ -726,7 +750,7 @@ class FreqListener(object):
         except Exception, exc:
             msg = ('Failed to setup signal probe'
                    'with {m}').format(m=str(exc))
-            log.debug(msg)
+            logging.debug(msg)
             raise Exception(msg)
 
         self._status = 'RUNNING'
@@ -739,7 +763,7 @@ class FreqListener(object):
         """Stop the frequency listener """
 
         msg = 'stopping frequency listener {id}'.format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
         if self._status == 'RUNNING':
 
@@ -763,7 +787,7 @@ class FreqListener(object):
         else:
             msg = ("Will not stop listener, as status is"
                    " {s}").format(s=self._status)
-            log.error(msg)
+            logging.error(msg)
             msg = 'not yet done'
             raise FreqListenerError(msg)
 
@@ -773,12 +797,12 @@ class FreqListener(object):
         """Configure for sound output for the listener"""
 
         msg = 'fm demod will start for listener {id}'.format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
         self._fm_demod()
 
         msg = 'fm demod started for listener {id}'.format(id=self.get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def _fm_demod(self):
         """Do an FM demodulation for this listener"""
@@ -815,4 +839,4 @@ class FreqListener(object):
                                     audio_sink_connection))
 
         msg = 'started demodulation'
-        log.debug(msg)
+        logging.debug(msg)

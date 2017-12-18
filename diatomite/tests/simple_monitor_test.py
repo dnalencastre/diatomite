@@ -58,7 +58,7 @@ class TestFrequencies(object):
 
         # enable the audio output
         audio_enable = True
-        self._radio_source.set_audio_sink_enable(audio_enable)
+        self._radio_source.set_audio_enable(audio_enable)
         
         # enable the spectrum analyzer for the source
         spec_analyzer = True

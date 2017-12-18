@@ -14,6 +14,7 @@ site:
             radiosource1:
                 id: "rs1"
                 type: "RTL2838_R820T2"
+                audio_output: "True"
                 # center frequency for the radios source
                 # this should be chosen in order to allow all the
                 # listeners (and their bandwiths) to fit within
@@ -30,19 +31,19 @@ site:
                         modulation: "FM"
                         bandwidth: "200000"
                         level_threshold: "-65"
-                        audio_output: "True"
-                    listener2:
-                        id: "ln12"
-                        frequency: "90000000"
-                        bandwidth: "200000"
-                        level_threshold: "-65"
-            radiosource2:
-                id: "rs2"
-                type: "RTL2838_R820T2"
-                frequency: "102e6"                
-                listeners:
-                    listener1:
-                        id: "ln21"
-                        frequency: "97000000"
-                        bandwidth: "200000"
-                        level_threshold: "-65"
+                        audio_output: "False"
+#                    listener2:
+#                        id: "ln12"
+#                        frequency: "90000000"
+#                        bandwidth: "200000"
+#                        level_threshold: "-65"
+#            radiosource2:
+#                id: "rs2"
+#                type: "RTL2838_R820T2"
+#                frequency: "102e6"                
+#                listeners:
+#                    listener1:
+#                        id: "ln21"
+#                        frequency: "97000000"
+#                        bandwidth: "200000"
+#                        level_threshold: "-65"
