@@ -28,6 +28,7 @@ import yaml
 import radiosource
 import freqlistener
 import diatomite_aux_classes as dia_aux
+import diatomite_api as dia_api
 
 def arg_parser():
     """Parse command line arguments.
@@ -296,11 +297,17 @@ def setup_probe(probe, probe_conf):
 
         # add the radio sources to the probe
         probe.add_radio_source(r_source)
-
-
-    print " AQUI AQUI AQUI AQUI AQUI"
+    
+    # start probes
     probe.start_sources()
-    print " AQUI22 AQUI22 AQUI22 AQUI22 AQUI22"
+
+def setup_api_srv(api_srv, conf):
+    """Setup and start the api server
+        api_srv --- the api server object
+        probe_conf -- probe configuration
+    """
+    
+    api_srv.start()
 
 def main():
     """Main processing block for the server"""
@@ -333,9 +340,15 @@ def main():
 
     this_probe = dia_aux.DiatomiteProbe()
 
+    api_srv = dia_api.ApiSvc(probe_conf)
+    
+    setup_api_srv(api_srv, probe_conf)
+
     setup_probe(this_probe, probe_conf)
 
     # TODO: setup API
+    
+
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)

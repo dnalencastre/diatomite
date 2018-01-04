@@ -21,10 +21,10 @@
 
 import os
 import logging
-import datetime
 import threading
 import sys
 from multiprocessing import Process, Queue
+from multiprocessing import managers as mp_managers
 from string import ascii_letters, digits
 import osmosdr
 from gnuradio import gr
@@ -35,8 +35,7 @@ from gnuradio import audio
 from gnuradio.filter import firdes
 from gnuradio import analog
 import diatomite_aux_classes as dia_aux
-from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
-
+from datetime import datetime
 
 class RadioSourceFrequencyOutOfBoundsError(Exception):
     """Raised when a RadioSource is given a FreqListener that has frequency and
@@ -247,7 +246,7 @@ class RadioSource(object):
 
             # TODO: fft value processing should go here
 
-            current_time = datetime.datetime.utcnow().isoformat()
+            current_time = datetime.utcnow().isoformat()
 
             # logpower fft swaps the lower and upper halfs
             # of the spectrum, this fixes it
@@ -339,13 +338,13 @@ class RadioSource(object):
         self._probe_stop.set()
 
     def set_ouptut_queue(self, queue):
-        """Set this listenere's output queue
+        """Set this radio source's output queue
         queue -- the output queue (multiprocessing.Queue)"""
 
         type_queue = type(queue)
 
         # check if we were given an object of the right type
-        if not isinstance(queue, multiprocessing.managers.BaseProxy):
+        if not isinstance(queue, mp_managers.BaseProxy):
 
             msg = ('Queue must be a queue of multiprocessing.managers.BaseProxy,'
                    ' was {tgtb}').format(tgtb=type_queue)
