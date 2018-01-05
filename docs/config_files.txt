@@ -1,20 +1,28 @@
+Configuration files
+
+Formats:
+Currently only yaml is supported
+
+Yaml structure
+
+
 sites:
   # the site section is it's own id
-  "test_site_1":
-    # mandatory fields for a site:
-    # location : text
-    # probes (a single probe)
-    #
-    # optional fields for a site:
-    # address : text)
-    # type : text, eg: "mobile probe" or "Fixed probe"
-    # coordinates : text, shoudl contain both the coordinates and the coordinate system
-    #
+  "<site_id>":
+  	# mandatory fields for a site:
+  	# location : text
+  	# probes (a single probe)
+  	#
+  	# optional fields for a site:
+  	# address : text)
+  	# type : text, eg: "mobile probe" or "Fixed probe"
+  	# coordinates : text, shoudl contain both the coordinates and the coordinate system
+  	#
     location: "On the lab"
     # each site must have one probe
     probes:
       # the probe section is it's own id
-      "test_probe_1":
+      "<probe_id>":
         # mandatory fields for a probe:
         # RadioSources (a list of radio sources)
         # optional fields for a probe
@@ -28,19 +36,20 @@ sites:
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, logs won't be kept
+
         tap_directory: "taps"
         # each probe must have at least one radio source
         RadioSources:
           # each radio source's section is it's own id
-          "rs1":
-              # mandatory fields:
-              #   type: The type of hardware being used, string
+          "<radio_source_id>":
+          	  # mandatory fields:
+          	  #   type: The type of hardware being used, string
               # frequency: Center frequency for this radio source.
               #   all the listener's must fit around the hardware's sampling bandwidth
               #   centered on this frequency. (including each listener's bandwith)
               #   in Hz, either int or a power of ten format (89000000 or 89.5e6)
-              # Optional fields
-              #   conf: configuration string for the hardware (future use). 
+          	  # Optional fields
+          	  #   conf: configuration string for the hardware (future use). 
               #   audio_output: if audio output of this source's listeners may be activated
               #     "True" to activate, "False" to deactivate . Default is deactivated 
               type: "RTL2838_R820T2"
@@ -48,18 +57,18 @@ sites:
               frequency: "90e6"
               # each radio source must have at least one listener
               listeners:
-                # each listener's section is it's own id 
-                "ln11":
+              	# each listener's section is it's own id 
+                "<listener_id>":
                     # mandatory fields
                     # frequency: Frequency to be monitored.
                     #   in Hz, either int or a power of ten format (89000000 or 89.5e6)
                     # bandwidth: expected bandwidth of the signal to be monitored 
                     #   in Hz, either int or a power of ten format (200000 or 200e3)
                     # level_threshold: level above which the signal is to be considered "present".
-                    # This should be a level above the noise floor.int, in DBM
+                    #	This should be a level above the noise floor.int, in DBM
                     #
                     # Optional fields
-                    #   audio_output: if audio output of this listener is to be done. 
+                    # 	audio_output: if audio output of this listener is to be done. 
                     #     "True" to activate, "False" to deactivate . Default is deactivated 
                     #   modulation: modulation to be used if audio output is configured 
                     #     (currently only FM). No default. If not configured, audio output 
@@ -72,15 +81,15 @@ sites:
                     level_threshold: "-65"
                     audio_output: "False"
                     freq_analyzer_tap: "True"
-                "ln12":
+                "<listener_id>":
                     frequency: "90000000"
                     bandwidth: "200000"
                     level_threshold: "-65"
-#          "rs2":
-#              type: "RTL2838_R820T2"
-#              frequency: "102e6"                
-#              listeners:
-#                "ln21":
-#                  frequency: "97000000"
-#                  bandwidth: "200000"
-#                  level_threshold: "-65"
+          "<radio_source_id>":
+              type: "RTL2838_R820T2"
+              frequency: "102e6"                
+              listeners:
+                "<listener_id>":
+                  frequency: "97000000"
+                  bandwidth: "200000"
+                  level_threshold: "-65"

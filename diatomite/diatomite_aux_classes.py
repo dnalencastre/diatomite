@@ -30,7 +30,7 @@ from string import ascii_letters, digits
 import freqlistener
 import radiosource
 from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
-
+import yaml
 
 class FreqListenerListIdNotUniqueError(Exception):
     """Raised when a FreqListener with an already occurring id is added to a
@@ -47,6 +47,10 @@ class RadioSourceListIdNotUniqueError(Exception):
 class BadIdError(Exception):
     """Raised when an object is passed an id with unacceptable
     characters."""
+    pass
+
+class DiaConfParserError(Exception):
+    """Raised when unable to read a meaningfull configuration"""
     pass
 
 
@@ -531,3 +535,300 @@ class DiatomiteProbe(object):
         """stop all the sources"""
         pass
         # TODO: add method to stop all radio sources
+        
+        
+class DiaConfParser(object):
+    """Handles parsing of configurations"""
+
+    _has_valid_conf_file = False
+    _initial_conf = {}
+    _good_conf = {}
+
+    def read_conf_file(self, filep):
+        """Read configuration file, abstracted to allow various formats
+        filep -- configuration file path"""
+        
+        if filep == None:
+            msg = 'Config file not specified'
+            raise DiaConfParserError(msg)
+        
+        msg = 'Reading config file:{cf}'.format(cf=filep)
+        log.debug(msg)
+        
+        # check if the file can be opened
+        try:
+            conf_file_h = open(filep, 'r')
+        except IOError, exc:
+            msg = ('Unable to open file {f}'
+                   ' with: {m}').format(f=filep, m=str(exc))
+            log.error(msg)
+            msg = sys.exc_info()
+            log.error(msg)
+            raise
+
+
+
+        # try and read as yaml config
+        try:
+            self.read_yaml_conf_file(conf_file_h)
+        except yaml.YAMLError:
+            pass
+        else:
+            try:
+                self._good_conf = self._process_config(self._initial_conf)
+            except DiaConfParserError, exc:
+                msg = ('Unable to read a valid configuration'
+                       ': {m}').format(m=str(exc))
+                log.error(msg)
+                raise
+            _has_valid_conf_file = True
+
+
+
+        # other configuration files would be read here.
+
+        # if we don't have a valid config file, raise an exception
+        if not _has_valid_conf_file:
+            msg = 'Unable to get a meaningful configuration'
+            raise DiaConfParserError(msg)
+        
+    def _process_config(self, conf):
+        """Check configuration file for completeness, add default values."""
+
+        # check if 'site' section exists
+        try:
+            sites= conf['sites']
+        except KeyError:
+            msg = ('FATAL: configuration error, missing site definition'
+                   ' section')
+            raise DiaConfParserError(msg)
+
+        # process this site
+        for s_key in sites:
+
+            this_site = sites[s_key]
+            # add the listener id to the data
+            this_site['id'] = s_key
+
+            # check for mandatory site fields
+            if 'location' not in this_site:
+                msg = ('FATAL: configuration error, missing site LOCATION '
+                       'definition')
+                raise DiaConfParserError(msg)
+            if this_site['location'] == '':
+                msg = ('FATAL: configuration error, missing site LOCATION '
+                       'definition')
+                raise DiaConfParserError(msg)
+            # check for optional site fields and
+            # fill the up with appropriate values if those are missing
+            if 'address' not in this_site:
+                this_site['address']='N/A'
+            if 'type' not in this_site:
+                this_site['type']='N/A'
+            if 'coordinates' not in this_site:
+                this_site['coordinates']='N/A'
+                    
+            # check if the 'probe' section exists
+            try:
+                probes = this_site['probes']
+            except KeyError:
+                msg = ('FATAL: configuration error, missing probe definition'
+                       'section')
+                raise DiaConfParserError(msg)
+            
+            for p_key in probes:
+            
+                this_probe = probes[p_key]
+                # add the listener id to the data
+                this_probe['id'] = p_key
+    
+                # check for mandatory probe fields
+                # note: currently no mandatory fields for the probe
+                
+                # check for optional site fields and
+                # fill the up with appropriate values if those are missing
+                if 'tap_directory' not in this_probe:
+                    this_probe['tap_directory'] = ''
+                if 'log_path' not in this_probe:
+                    this_probe['tap_directory'] = ''
+
+                # check for 'RadioSources' section
+                try:
+                    radio_sources =  this_probe['RadioSources']
+                except KeyError:
+                    msg = ('FATAL: configuration error, missing RadioSources '
+                           'section')
+                    raise DiaConfParserError(msg)
+        
+                # check if there are radio sources
+                if not radio_sources:
+                    msg = ('FATAL: configuration error, empty RadioSources'
+                           'section')
+                    raise DiaConfParserError(msg)
+        
+                # check each radio source
+                for rs_key in radio_sources:
+        
+                    this_r_source = radio_sources[rs_key]
+                    # add radio source id to the data
+                    this_r_source['id'] = rs_key
+        
+                    # define mandatory fields
+                    if 'type' not in this_r_source:
+                        msg = ('FATAL: configuration error, missing radio source Type'
+                               ' definition')
+                        raise DiaConfParserError(msg)
+                    if this_r_source['type'] == '':
+                        msg = ('FATAL: configuration error, missing radio source Type'
+                               ' definition')
+                        raise DiaConfParserError(msg)
+        
+                    if 'frequency' not in this_r_source:
+                        msg = ('FATAL: configuration error, missing radio source'
+                               ' Frequency definition')
+                        raise DiaConfParserError(msg)
+                    if isinstance(this_r_source['frequency'], (int, long)):
+                        msg = ('FATAL: configuration error, malformed radio source'
+                               ' Frequency definition')
+                        raise DiaConfParserError(msg)                
+        
+                    # define optional fields
+                    if 'conf' not in this_r_source:
+                        this_r_source['conf']=''
+                    if 'audio_output' not in this_r_source:
+                        this_r_source['audio_output'] = False
+                    else:
+                        # TODO: remove
+                        if this_r_source['audio_output'].lower() not in ('false', 'true'):
+                            msg = ('FATAL: configuration error, malformed radio source'
+                                   ' audio_output option')
+                            raise DiaConfParserError(msg)
+                        else:
+                            if this_r_source['audio_output'].lower() == 'false':
+                                this_r_source['audio_output'] = False
+                            elif this_r_source['audio_output'].lower() == 'true':
+                                this_r_source['audio_output'] = True
+                                                   
+                    # check if there are listeners
+                    try:
+                        listeners = this_r_source['listeners']
+                    except KeyError:
+                        msg = ('FATAL: configuration error, missing Listeners '
+                               'section for radio source {rs}').format(rs=rs_key)
+                        raise DiaConfParserError(msg)
+                    if not listeners:
+                        msg = ('FATAL: configuration error, missing listeners'
+                               'section for radio source {rs}').format(rs=rs_key)
+                        raise DiaConfParserError(msg)
+        
+                    # check each listener
+                    for l_key in listeners:
+        
+                        this_listener = listeners[l_key]
+                        # add the listener id to the data
+                        this_listener['id'] = l_key
+        
+                        # define mandatory fields
+                        if 'frequency' not in this_listener:
+                            msg = ('FATAL: configuration error, missing listener'
+                                   ' Frequency definition')
+                            raise DiaConfParserError(msg)
+                        if isinstance(this_listener['frequency'], (int, long)):
+                            msg = ('FATAL: configuration error, malformed listener'
+                                   ' Frequency definition')
+                            raise DiaConfParserError(msg)
+                    
+                        if 'bandwidth' not in this_listener:
+                            msg = ('FATAL: configuration error, missing listener'
+                                   ' bandwidth definition')
+                            raise DiaConfParserError(msg)
+                        if isinstance(this_listener['bandwidth'], (int, long)):
+                            msg = ('FATAL: configuration error, malformed listener'
+                                   ' bandwidth definition')
+                            raise DiaConfParserError(msg)
+        
+                        if 'level_threshold' not in this_listener:
+                            msg = ('FATAL: configuration error, missing listener'
+                                   ' level_threshold definition')
+                            raise DiaConfParserError(msg)              
+                        if isinstance(this_listener['level_threshold'], (int, long)):
+                            msg = ('FATAL: configuration error, malformed listener'
+                                   ' level_threshold definition')
+                            raise DiaConfParserError(msg)  
+        
+                        # define optional fields
+                        if 'modulation' not in this_listener:
+                            this_listener['modulation'] = ''
+                        if this_listener['modulation'] not in ('FM'):
+                            this_listener['modulation'] = ''
+        
+                        if 'audio_output' not in this_listener:
+                            this_listener['audio_output'] = False
+                        else:
+                            if this_listener['audio_output'].lower() not in ('false', 'true'):
+                                msg = ('FATAL: configuration error, malformed listener'
+                                       ' audio_output option')
+                                raise DiaConfParserError(msg)
+                            else:
+                                if this_listener['audio_output'].lower() == 'false':
+                                    this_listener['audio_output'] = False
+                                elif this_listener['audio_output'].lower() == 'true':
+                                    this_listener['audio_output'] = True                          
+                        # check if the radio source is enabled
+                        if this_listener['audio_output'] and not this_r_source['audio_output']:
+                            this_listener['audio_output'] = False
+                            msg = ('Radio source audio output is disabled, '
+                                   ' and listener audio output requested.'
+                                   ' Disabling audio output for the listener.')
+                            log.info(msg)
+                        # check if modulation is configured
+                        if this_listener['audio_output'] and this_listener['modulation'] == '':
+                            this_listener['audio_output'] = False
+                            msg = ('Listener modulation not defined, '
+                                   ' and listener audio output requested.'
+                                   ' Disabling audio output for the listener.')
+                            log.info(msg)
+        
+                        if 'freq_analyzer_tap' not in this_listener:
+                            this_listener['freq_analyzer_tap'] = False
+                        else:
+                            if this_listener['freq_analyzer_tap'].lower() not in ('false', 'true'):
+                                msg = ('FATAL: configuration error, malformed listener'
+                                       ' freq_analyzer_tap option')
+                                raise DiaConfParserError(msg)
+                            else:
+                                if this_listener['freq_analyzer_tap'].lower() == 'false':
+                                    this_listener['freq_analyzer_tap'] = False
+                                elif this_listener['freq_analyzer_tap'].lower() == 'true':
+                                    this_listener['freq_analyzer_tap'] = True
+
+        # return configuration
+        return conf                   
+            
+    def read_yaml_conf_file(self, conf_file_h):
+        """Reads a yaml configuration file and converts to
+        a dictionary
+        conf_file_h -- handle for the configuration file"""
+        
+        try:
+            self._initial_conf = yaml.safe_load(conf_file_h)
+
+        except yaml.YAMLError, exc:
+            msg = ('Unable to read yaml file {f}'
+                   ' with: {m}').format(f=conf_file_h.path, m=str(exc))
+
+            log.error(msg)
+            msg = sys.exc_info()
+            log.error(msg)
+            raise
+    
+    def get_config(self):
+        """Return a fully formed configuration file"""
+        
+        if self._good_conf:
+            return self._good_conf
+        else:
+            msg = 'No valid configuration available'
+            raise DiaConfParserError(msg)
+        
+                   

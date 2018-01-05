@@ -29,6 +29,7 @@ import radiosource
 import freqlistener
 import diatomite_aux_classes as dia_aux
 import diatomite_api as dia_api
+import diatomite_aux_classes
 
 def arg_parser():
     """Parse command line arguments.
@@ -319,32 +320,40 @@ def main():
 
     msg = 'Arguments:{args}'.format(args=args)
     logging.debug(msg)
+    
+    dia_conf = diatomite_aux_classes.DiaConfParser()
 
     try:
-        conf = config_parser(args.config_file)
-    except (IOError, yaml.YAMLError), exc:
+        dia_conf.read_conf_file(args.config_file)
+    except diatomite_aux_classes.DiaConfParserError, exc:
         msg = 'FATAL: Unable to process configurations:{m}'.format(m=exc)
         raise
 
-    if 'site' in conf:
-        try:
-            probe_conf = conf['site']['probe']
-        except KeyError, exc:
-            msg = ('FATAL: configuration error, missing probe definition'
-                   ' Missing key {exc} on configuration file').format(exc=exc)
-            raise Exception(msg)
+    print '###############conf:'
+    print '{c}'.format(c=dia_conf.get_config())
+    print '#################'
 
-    else:
-        msg = 'FATAL: configuration error, missing site definition'
-        raise Exception(msg)
+# TODO: redo below !!
 
-    this_probe = dia_aux.DiatomiteProbe()
-
-    api_srv = dia_api.ApiSvc(probe_conf)
-    
-    setup_api_srv(api_srv, probe_conf)
-
-    setup_probe(this_probe, probe_conf)
+#     if 'site' in conf:
+#         try:
+#             probe_conf = conf['site']['probe']
+#         except KeyError, exc:
+#             msg = ('FATAL: configuration error, missing probe definition'
+#                    ' Missing key {exc} on configuration file').format(exc=exc)
+#             raise Exception(msg)
+# 
+#     else:
+#         msg = 'FATAL: configuration error, missing site definition'
+#         raise Exception(msg)
+# 
+#     this_probe = dia_aux.DiatomiteProbe()
+# 
+#     api_srv = dia_api.ApiSvc(probe_conf)
+#     
+#     setup_api_srv(api_srv, probe_conf)
+# 
+#     setup_probe(this_probe, probe_conf)
 
     # TODO: setup API
     
