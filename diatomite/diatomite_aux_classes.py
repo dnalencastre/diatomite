@@ -698,7 +698,6 @@ class DiaConfParser(object):
                     if 'audio_output' not in this_r_source:
                         this_r_source['audio_output'] = False
                     else:
-                        # TODO: remove
                         if this_r_source['audio_output'].lower() not in ('false', 'true'):
                             msg = ('FATAL: configuration error, malformed radio source'
                                    ' audio_output option')
