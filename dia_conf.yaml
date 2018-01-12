@@ -18,17 +18,18 @@ sites:
         # mandatory fields for a probe:
         # RadioSources (a list of radio sources)
         # optional fields for a probe
-        # tap_directory : path to the directory where taps will be written
+        # tap_dir_path : path to the directory where taps will be written
         #     either an absolute path or relative to the directory where the
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, taps will not be activated
-        # log_path : path to where logs should be kept
+        # log_dir_path : path to where logs should be kept
         #     either an absolute path or relative to the directory where the
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, logs won't be kept
-        tap_directory: "taps"
+        tap_dir_path: "taps"
+        log_dir_path: "logs"
         # each probe must have at least one radio source
         RadioSources:
           # each radio source's section is it's own id
@@ -73,6 +74,7 @@ sites:
                     audio_output: "False"
                     freq_analyzer_tap: "True"
                 "ln12":
+                    modulation: "FM"
                     frequency: "90000000"
                     bandwidth: "200000"
                     level_threshold: "-65"

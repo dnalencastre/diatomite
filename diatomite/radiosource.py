@@ -114,7 +114,10 @@ class RadioSource(object):
     _id = ''
 
     # list of frequency listeners
-    _listener_list = dia_aux.FreqListenerList()
+    #    TODO: AQUI, mudar de radio RadioSourceList pra RadioSources !!!
+#     _listener_list = dia_aux.FreqListenerList()
+    _listeners = dia_aux.FreqListeners()
+    
 
     # define the bandwidth capability of the radio source, in hz
     _cap_bw = 0
@@ -171,25 +174,63 @@ class RadioSource(object):
 
     _fft_signal_probe = None
 
-    def __init__(self, radio_source_id):
+    def __init__(self, conf, out_queue, log_dir_path, tap_dir_path):
         """Initialize the radio source object.
-        radio_source_id -- the frequency listener id.
-                        Acceptable characters: ASCII characters, numbers,
-                        underscore, dash."""
-        self._source_args = "numchan=" + str(1) + " " + ''
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        out_queue -- queue to be used as output for radio sources
+        log_dir_path -- path where logs will be written
+        tap_dir_path -- path where taps wil be created"""
 
-        self.set_id(radio_source_id)
+        if (conf is not None and out_queue is not None and
+            log_dir_path is not None and tap_dir_path is not None):
+            self.configure(conf, out_queue, log_dir_path, tap_dir_path)
+        else:
+            msg = ('Incomplete initialization.conf:{c}, output queue:{q},' 
+                   ' log_dir_path:{lp},'
+                   ' tap_dir_pat:{tp}').format(c=conf, q=out_queue,
+                                               lp=log_dir_path, tp=tap_dir_path)
+            raise RadioSourceError(msg)
 
+    def configure(self,conf, out_queue, log_dir_path, tap_dir_path):
+        """Configure the radio sources collection
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        out_queue -- queue to be used as output for radio sources
+        log_dir_path -- path where logs will be written
+        tap_dir_path -- path where taps wil be created"""
+
+        # TODO: remove
+        print '--------------------'
+        print '>>>>c:{c}'.format(c=conf)
+
+        self.set_log_dir_path(log_dir_path)
+        self.set_tap_dir_path(tap_dir_path)
+        self.set_ouptut_queue(out_queue)
+        
+        self.set_id(conf['id'])
+
+        self.set_audio_enable(conf['audio_output'])
+
+        # radio must be initialized before setting the center
+        # freq
         self._radio_init()
+
+        self.set_frequency(conf['frequency'])
+        
+        self._source_args = conf['conf']
+#         self._source_args = "numchan=" + str(1) + " " + ''
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw,
                                   cfmin=self._cap_freq_min,
                                   cfmax=self._cap_freq_max,
-                                  cf=self._center_freq, id=radio_source_id)
+                                  cf=self._center_freq, id=self.get_id())
         logging.debug(msg)
 
+        # configure listeners        
+        self._listeners.configure(conf['listeners'], self, tap_dir_path )
 
     def _radio_init(self):
         """Initialize the radio hw."""
@@ -337,6 +378,28 @@ class RadioSource(object):
         # send the stop event to the thread
         self._probe_stop.set()
 
+    def set_log_dir_path(self, log_dir_path):
+        """Set the probe's log path
+        log_dir_path - path to the logs directory"""
+         
+        self._log_dir_path = log_dir_path
+         
+    def set_tap_dir_path(self, tap_dir):
+        """Set the probe's tap directory
+        tap_dir - path to the tap directory"""
+
+        self._tap_dir_path = tap_dir
+
+    def get_log_dir_path(self):
+        """Return the probe's log directory path"""
+        
+        return self._log_dir_path
+  
+    def get_tap_dir_path(self):
+        """Return the probe's tap directoty path"""
+        
+        return self._tap_dir_path
+
     def set_ouptut_queue(self, queue):
         """Set this radio source's output queue
         queue -- the output queue (multiprocessing.Queue)"""
@@ -421,6 +484,8 @@ class RadioSource(object):
 
         src_minimum_freq = self.get_minimum_frequency()
         src_maximum_freq = self.get_maximum_frequency()
+        
+        frequency = int(float(frequency))
 
         if not float(frequency).is_integer():
             msg = 'Frequency is not a whole number'
@@ -444,7 +509,7 @@ class RadioSource(object):
                '{f}').format(id=self.get_id(), f=self.get_center_frequency())
         logging.debug(msg)
 
-        # TODO:  iterate the list of listeners and re-set the offset
+        # TODO:  iterate the list of listeners and re-set the offset, to cover case when frequency is re-set when listeners are already working
 
     def set_audio_enable(self, audio_enable=True):
         """Set True if the audio sink is to be enabled, false otherwise.
@@ -503,7 +568,7 @@ class RadioSource(object):
         # on this listener
         listener.set_radio_source(self)
 
-        self._listener_list.append(listener)
+        self._listeners.append(listener)
         msg = 'FreqListener {i} added to list'.format(i=listener)
         logging.debug(msg)
 
@@ -744,13 +809,9 @@ class RadioSource(object):
 
         msg = ('Starting all frequency listeners for'
                'source {s}').format(s=self.get_id())
-
+        logging.info(msg)
         # iterate through the listeners and start them
-        for freq_listener in self._listener_list:
-            freq_listener.start()
-            msg = ('started frequency listener '
-                   '{fid}').format(fid=freq_listener.get_id())
-            logging.debug(msg)
+        self._listeners.start()
 
     def start_audio_sink(self):
         """Start an audio sink for this source."""
@@ -891,20 +952,20 @@ class RTL2838R820T2RadioSource(RadioSource):
     _antenna = ''
     _bandwith = 0
 
-    def __init__(self, radio_source_id):
+    def __init__(self, conf, out_queue, log_dir_path, tap_dir_path):
         """Initialize the radio source object.
         radio_source_id -- the frequency listener id.
                         Acceptable characters: ASCII characters, numbers,
                         underscore, dash."""
 
-        super(RTL2838R820T2RadioSource, self).__init__(radio_source_id)
+        super(RTL2838R820T2RadioSource, self).__init__(conf, out_queue, log_dir_path, tap_dir_path)
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
                ' id:{id}').format(t=self._type, cb=self._cap_bw,
                                   cfmin=self._cap_freq_min,
                                   cfmax=self._cap_freq_max,
-                                  cf=self._center_freq, id=radio_source_id)
+                                  cf=self._center_freq, id=self.get_id())
         logging.debug(msg)
 
     def _radio_init(self):

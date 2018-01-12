@@ -321,7 +321,7 @@ def main():
     msg = 'Arguments:{args}'.format(args=args)
     logging.debug(msg)
     
-    dia_conf = diatomite_aux_classes.DiaConfParser()
+    dia_conf = dia_aux.DiaConfParser()
 
     try:
         dia_conf.read_conf_file(args.config_file)
@@ -329,9 +329,7 @@ def main():
         msg = 'FATAL: Unable to process configurations:{m}'.format(m=exc)
         raise
 
-    print '###############conf:'
-    print '{c}'.format(c=dia_conf.get_config())
-    print '#################'
+    this_site = dia_aux.DiatomiteSite(conf=dia_conf.get_config())
 
 # TODO: redo below !!
 

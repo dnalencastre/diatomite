@@ -16,8 +16,9 @@ sites:
   	# optional fields for a site:
   	# address : text)
   	# type : text, eg: "mobile probe" or "Fixed probe"
-  	# coordinates : text, shoudl contain both the coordinates and the coordinate system
-  	#
+  	# latitude : text, latitude geographical coordinates for the site 
+  	# longitude : text, longitude geographical coordinates for the site
+  	# coord_type : text, type of geographical coordinates (ex:, "deg,min,sec")
     location: "On the lab"
     # each site must have one probe
     probes:
@@ -26,18 +27,17 @@ sites:
         # mandatory fields for a probe:
         # RadioSources (a list of radio sources)
         # optional fields for a probe
-        # tap_directory : path to the directory where taps will be written
+        # tap_dir_path : path to the directory where taps will be written
         #     either an absolute path or relative to the directory where the
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, taps will not be activated
-        # log_path : path to where logs should be kept
+        # log_dir_path : path to where logs should be kept
         #     either an absolute path or relative to the directory where the
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, logs won't be kept
-
-        tap_directory: "taps"
+        log_dir_path: "taps"
         # each probe must have at least one radio source
         RadioSources:
           # each radio source's section is it's own id
