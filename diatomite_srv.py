@@ -54,14 +54,6 @@ def arg_parser():
 
     return args
 
-def setup_api_srv(api_srv, conf):
-    """Setup and start the api server
-        api_srv --- the api server object
-        probe_conf -- probe configuration
-    """
-    
-    api_srv.start()
-
 def main():
     """Main processing block for the server"""
 
@@ -80,8 +72,6 @@ def main():
     except diatomite_aux_classes.DiaConfParserError, exc:
         msg = 'FATAL: Unable to process configurations:{m}'.format(m=exc)
         raise
-
-    # TODO: config and start api server
     
     this_site = dia_aux.DiatomiteSite(conf=dia_conf.get_config())
 

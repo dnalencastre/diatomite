@@ -197,7 +197,7 @@ class RadioSource(object):
             raise RadioSourceError(msg)
 
     def configure(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
-        """Configure the radio sources collection
+        """Configure the radio source object.
         conf -- a dictionary with a valid configuration
                 (use DiaConfParser to obtain a valid config)        
         in_queue -- queue to be used as input for this radio source

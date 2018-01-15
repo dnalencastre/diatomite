@@ -33,6 +33,7 @@ from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
 import yaml
 import collections
 from multiprocessing import Queue
+import diatomite_api
 
 class FreqListenerListIdNotUniqueError(Exception):
     """Raised when a FreqListener with an already occurring id is added to a
@@ -527,20 +528,23 @@ class Probes(object):
     
     _probe_dict = {}
 
-    def __init__(self, conf=None):
-        if conf is not None:
+    def __init__(self, probes_conf=None, site_conf=None):
+        """Initialize the Probes collection
+        probes_conf -- a dictionary with a valid configuration
+        site_conf -- a dictionary with the site configuratio"""
+        if probes_conf is not None and site_conf is not None:
             # read configuration
-            self.configure(conf)    
+            self.configure(probes_conf, site_conf)
 
-    def configure(self,conf):
+    def configure(self, probes_conf, site_conf):
         """Configure the Probes collection
-        conf -- a dictionary with a valid configuration
-                (use DiaConfParser to obtain a valid config)"""
+        probes_conf -- a dictionary with a valid configuration
+        site_conf -- a dictionary with the site configuratio"""
 
         # initialize each probe
         # although there should only be one probe
-        for probe_id in conf:        
-            this_probe = DiatomiteProbe(conf[probe_id])
+        for probe_id in probes_conf:        
+            this_probe = DiatomiteProbe(probes_conf[probe_id], site_conf)
             self._probe_dict[probe_id] = this_probe
 
     def start(self):
@@ -595,7 +599,7 @@ class DiatomiteSite(object):
         
         self.set_type(site_conf['type'])
         
-        self.set_probes(site_conf['probes'])
+        self.set_probes(site_conf['probes'], conf['sites'])
         
     def set_id(self, site_id):
         """Set the site's id
@@ -626,11 +630,13 @@ class DiatomiteSite(object):
         
         return self._id
         
-    def set_probes(self, probe_dict):
+    def set_probes(self, probes_conf, site_conf):
         """Set the probe info
-        probe_dict -- a dictionary of probe configurations"""
-        
-        self._probes.configure(probe_dict)
+        probes_conf -- a dictionary of probe configurations
+        site_conf -- a dictionary with the site's configuration
+        """
+
+        self._probes.configure(probes_conf, site_conf)
 
     def start(self):
         """Start this object and it's children"""
@@ -655,6 +661,10 @@ class DiatomiteProbe(object):
     _log_dir_path = None
     _tap_dir_path = None
 
+    _api_svc = None
+    _api_svc_input_pipe = None
+    _api_svc_output_pipe = None
+    
     # pipe inputs for each radio source
     # index is the radio source ID
     _source_inputs = {}
@@ -676,22 +686,51 @@ class DiatomiteProbe(object):
         # TODO: add remaining code to stop
         self._radio_sources.stop()
 
-    def __init__(self, conf=None):
-
-        if conf is not None:
-            # read configuration
-            self.configure(conf)
-
-    def configure(self,conf):
+    def __init__(self, conf=None, full_conf=None):
         """Configure the Probe
-        conf -- a dictionary with a valid configuration
-                (use DiaConfParser to obtain a valid config)"""
+        conf -- a dictionary with a valid probe configuration
+        full_conf -- a dictionary with the full configuration
+            received by diatomite
+        """
+
+        if conf is not None and full_conf is not None:
+            # read configuration
+            self.configure(conf, full_conf)
+
+    def configure(self,conf, full_conf):
+        """Configure the Probe
+        conf -- a dictionary with a valid probe configuration
+        full_conf -- a dictionary with the full configuration
+            received by diatomite
+        """
 
         self.set_id(conf['id'])
         self.set_log_dir_path(conf['log_dir_path'])
         self.set_tap_dir_path(conf['tap_dir_path'])
-        
+
         self.set_radio_sources(conf['RadioSources'])
+
+        self.configure_api_srv(conf, full_conf)
+        
+        # TODO:this willl need to be moved to a proper start phase
+        self.start_api_srv()
+        
+    def start_api_srv(self):
+        """start the api service"""
+        self._api_svc.start()
+
+    def configure_api_srv(self, conf, full_conf):
+        """Start the api server for this probe
+        conf -- a dictionary with a valid probe configuration
+        full_conf -- a dictionary with the full configuration
+            received by diatomite"""
+            
+        self._api_svc_input_pipe = Queue()
+        self._api_svc_output_pipe = Queue()
+
+        self._api_svc = diatomite_api.ApiSvc(conf, full_conf,
+                                             self._api_svc_input_pipe,
+                                             self._api_svc_output_pipe)
 
     def set_radio_sources(self, radio_sources_dict):
         """set the radio sources info
