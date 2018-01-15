@@ -118,42 +118,42 @@ class FreqListener(object):
         """init the FreqListener
         conf -- a dictionary with a valid configuration
                 (use DiaConfParser to obtain a valid config)
-        radio_source -- this listener's radio source 
+        radio_source -- this listener's radio source
         tap_dir_path -- path where taps wil be created"""
 
-        if (conf is not None and radio_source is not None 
-            and tap_dir_path is not None):
+        if (conf is not None and radio_source is not None
+                and tap_dir_path is not None):
             self.configure(conf, radio_source, tap_dir_path)
         else:
-            msg = ('Incomplete initialization.conf:{c}, output queue:{q},' 
+            msg = ('Incomplete initialization.conf:{c}'
                    ' tap_dir_pat:{tp}').format(c=conf, tp=tap_dir_path)
             raise FreqListenerError(msg)
-        
+
     def configure(self, conf, radio_source, tap_dir_path):
         """Configure the radio sources collection
         conf -- a dictionary with a valid configuration
                 (use DiaConfParser to obtain a valid config)
-        radio_source -- this listener's radio source 
+        radio_source -- this listener's radio source
         tap_dir_path -- path where taps wil be created"""
 
         self.set_tap_dir_path(tap_dir_path)
-       
+
         self.set_id(conf['id'])
-        
+
         self.set_frequency(conf['frequency'])
-        
+
         self.set_modulation(conf['modulation'])
-        
+
         self.set_bandwidth(conf['bandwidth'])
-        
+
         self.set_signal_pwr_threshold(conf['level_threshold'])
-        
+
         self.set_spectrum_analyzer_tap_enable(conf['freq_analyzer_tap'])
-        
+
         self.set_audio_enable(conf['audio_output'])
-        
+
         self.set_radio_source(radio_source)
-        
+
         msg = ('Initialized with freq {f}, bw:{bw}, modulation:{md},'
                ' tap_dir:{td}, tap_out:{to} , audio_out:{ao}'
                ' id:{id}').format(f=self.get_frequency(),
@@ -165,7 +165,7 @@ class FreqListener(object):
                                   id=self.get_id())
         logging.debug(msg)
 
-        # configure listeners        
+        # configure listeners
 
     def set_id(self, listener_id):
         """Sets the frequency listener id.
@@ -244,7 +244,6 @@ class FreqListener(object):
                 logging.debug(msg)
             else:
                 tmp_tap_directory = os.path.join(os.getcwd() + os.sep + path)
-
 
         #  check if path exists and is writable
 
@@ -623,7 +622,8 @@ class FreqListener(object):
                'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
         logging.debug(msg)
 
-        out_msg = '{i}:SIG_STATUS:PRESENT:{lvl}'.format(i=my_id, lvl=signal_level)
+        out_msg = '{i}:SIG_STATUS:PRESENT:{lvl}'.format(i=my_id,
+                                                        lvl=signal_level)
         # pass the notification to the receiver
         self._radio_source.send_data(out_msg)
 
@@ -639,7 +639,8 @@ class FreqListener(object):
                'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
         logging.debug(msg)
 
-        out_msg = '{i}:SIG_STATUS:ABSENT:{lvl}'.format(i=my_id, lvl=signal_level)
+        out_msg = '{i}:SIG_STATUS:ABSENT:{lvl}'.format(i=my_id,
+                                                       lvl=signal_level)
         # pass the notification to the receiver
         self._radio_source.send_data(out_msg)
 

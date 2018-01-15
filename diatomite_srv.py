@@ -24,12 +24,7 @@
 
 import logging
 import argparse
-import yaml
-import radiosource
-import freqlistener
 import diatomite_aux_classes as dia_aux
-import diatomite_api as dia_api
-import diatomite_aux_classes
 
 def arg_parser():
     """Parse command line arguments.
@@ -64,15 +59,15 @@ def main():
 
     msg = 'Arguments:{args}'.format(args=args)
     logging.debug(msg)
-    
+
     dia_conf = dia_aux.DiaConfParser()
 
     try:
         dia_conf.read_conf_file(args.config_file)
-    except diatomite_aux_classes.DiaConfParserError, exc:
+    except dia_aux.DiaConfParserError, exc:
         msg = 'FATAL: Unable to process configurations:{m}'.format(m=exc)
         raise
-    
+
     this_site = dia_aux.DiatomiteSite(conf=dia_conf.get_config())
 
     this_site.start()

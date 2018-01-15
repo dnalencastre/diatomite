@@ -523,6 +523,7 @@ class Location(object):
         
         self._coord_type = coord_type
 
+
 class Probes(object):
     """Object for collections of probe."""
     
