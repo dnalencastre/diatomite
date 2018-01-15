@@ -136,15 +136,7 @@ class FreqListener(object):
         radio_source -- this listener's radio source 
         tap_dir_path -- path where taps wil be created"""
 
-        # TODO: remove
-        print '--------------------'
-        print '>>>>>>>>>c:{c}'.format(c=conf)
-        print '----.....---tdp2:{t}'.format(t=self.get_tap_dir_path())
-
         self.set_tap_dir_path(tap_dir_path)
-
-        # TODO: remove
-        print '----.....---tdp2:{t}'.format(t=self.get_tap_dir_path())
        
         self.set_id(conf['id'])
         
@@ -340,8 +332,6 @@ class FreqListener(object):
         modulation -- the modulation"""
 
         modulation = modulation.lower()
-
-        print '--------->m:{m}'.format(m=modulation)
 
         if modulation in self._supported_modulations:
             self._modulation = modulation

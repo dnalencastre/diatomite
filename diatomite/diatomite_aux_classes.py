@@ -21,7 +21,7 @@
 
 
 import os
-import logging as log
+import logging
 import threading
 import exceptions
 import errno
@@ -32,6 +32,7 @@ import radiosource
 from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
 import yaml
 import collections
+from multiprocessing import Queue
 
 class FreqListenerListIdNotUniqueError(Exception):
     """Raised when a FreqListener with an already occurring id is added to a
@@ -112,15 +113,15 @@ class DataTap(object):
                 msg = ('Data Tap {id}, File already exists , Failed creating'
                        ' named pipe for fft tap'
                        ' with: {m}').format(id=self._get_id(), m=str(exc))
-                log.error(msg)
+                logging.error(msg)
                 msg = sys.exc_info()
-                log.warning(msg)
+                logging.warning(msg)
         except Exception, exc:
             msg = ('Data Tap {id}, Failed creating named pipe for fft tap'
                    ' with: {m}').format(id=self._get_id(), m=str(exc))
-            log.error(msg)
+            logging.error(msg)
             msg = sys.exc_info()
-            log.error(msg)
+            logging.error(msg)
             raise
 
         # set the tap update on it's own thread
@@ -132,7 +133,7 @@ class DataTap(object):
         self._update_tap_thread.start()
 
         msg = 'Data Tap {id} tap setup done.'.format(id=self._get_id())
-        log.debug(msg)
+        logging.debug(msg)
 
     def _set_file(self):
         """Set the file name"""
@@ -154,23 +155,23 @@ class DataTap(object):
 
         if ident == '':
             msg = 'Identity is empty'
-            log.error(msg)
+            logging.error(msg)
             raise BadIdError(msg)
         if all(character in ascii_letters+digits+'_'+'-'
                for character in ident):
             self._id = ident.lower()
             msg = 'id set to {i}'.format(i=ident.lower())
-            log.debug(msg)
+            logging.debug(msg)
         else:
             msg = 'Frequency id contains can only contain AZaz09-_'
-            log.error(msg)
+            logging.error(msg)
             raise BadIdError(msg)
 
     def set_directory(self, path):
         """Set the directory where tap files should be written to.
         path -- full path to the directory"""
-        pass
-        # TODO: write the set_tap_dir_path
+        
+        self._tap_dir_path = path
 
     def _get_id(self):
         """Returns the data tap id."""
@@ -198,7 +199,7 @@ class DataTap(object):
             with open(self._tap_file_path, 'w', 0) as f_handle:
 
                 msg = ('writing on tap {t}').format(t=self._get_id())
-                log.debug(msg)
+                logging.debug(msg)
 
                 try:
                     f_handle.writelines(output)
@@ -206,15 +207,15 @@ class DataTap(object):
                     if exc.errno == errno.EPIPE:
                         msg = ('Broken pipe on tap {t} with:'
                                ' {m}').format(t=self._get_id(), m=str(exc))
-                        log.debug(msg)
+                        logging.debug(msg)
                         msg = sys.exc_info()
                         msg = ('Broken pipe on tap'
                                ' {t}').format(t=self._get_id())
-                        log.warning(msg)
+                        logging.warning(msg)
                     else:
                         msg = ('Error writing on on tap {t} with:'
                                ' {m}').format(t=self._get_id(), m=str(exc))
-                        log.error(msg)
+                        logging.error(msg)
                         raise
 
     def update_value(self, value):
@@ -243,7 +244,9 @@ class FreqListeners(object):
     _freq_listener_dict = {}
     _tap_dir_path = None
     _radio_source = None
-
+    _audio_sink = None
+    _source_output_queue = None
+    _log_dir_path = None
 
     def configure(self, conf, radio_source,tap_dir_path):
         """Configure the frequency listener collection
@@ -278,6 +281,14 @@ class FreqListeners(object):
 
         self._tap_dir_path = tap_dir
 
+    def set_audio_sink(self, audio_sink):
+        """Set the audio sink for sound output
+        audio_sink -- the audio sink to use"""
+
+        self._audio_sink = audio_sink
+        for freq_listener_id in self._freq_listener_dict:
+            self._freq_listener_dict[freq_listener_id].set_audio_sink(audio_sink)
+
     def get_out_queue(self):
         """Return the queue to be used by frequency listener"""
 
@@ -289,9 +300,20 @@ class FreqListeners(object):
         return self._log_dir_path
   
     def get_tap_dir_path(self):
-        """Return the probe's tap directoty path"""
+        """Return the probe's tap directory path"""
 
         return self._tap_dir_path
+    
+    def get_listener_id_list(self):
+        """Obtain list of ids for all the members of the list"""
+        
+        return self._freq_listener_dict.keys()
+ 
+    def get_listener_by_id(self, lid):
+        """Return a listener by id
+        lid -- the id to search for"""
+ 
+        return self._freq_listener_dict[lid]
 
     def start(self):
         """Start this object and it's children"""
@@ -300,9 +322,21 @@ class FreqListeners(object):
 
     def stop(self):
         """Stop this object and it's children"""
+        
+        # iterate through the listeners and stop them
         for freq_listener_id in self._freq_listener_dict:
-            self._freq_listener_dict[freq_listener_id].stop()
+            try:
+                self._freq_listener_dict[freq_listener_id].stop()
+            except Exception, exc:
+                msg = ('Failed stopping frequency listener {id} with:'
+                       ' {m}').format(id=freq_listener_id,
+                                      m=str(exc))
+                logging.debug(msg)
+                raise
 
+            msg = ('stopped frequency listener '
+                   '{fid}').format(fid=freq_listener_id)
+            logging.debug(msg)        
 
     def append(self, conf):
         """Append a new frequency listener
@@ -320,60 +354,6 @@ class FreqListeners(object):
         self._freq_listener_dict[f_listener_id] = listener
 
 
-# class FreqListenerList(list):
-#     """Define a list of Frequency listener objects."""
-# 
-#     def append(self, listener):
-#         """add a listener to the list.
-#         listener -- FreqListener
-#         append will not allow duplicate ids to be added."""
-# 
-#         current_id_list = self.get_listener_id_list()
-# 
-#         # Checking of type must occur before checking of id
-#         if not isinstance(listener, freqlistener.FreqListener):
-#             msg = 'item is not of type FreqListener'
-#             log.error(msg)
-#             raise TypeError(msg)
-# 
-#         # obtain the listener id
-#         id_to_add = listener.get_id()
-# 
-#         if id_to_add in current_id_list:
-#             msg = "Frequency Listener's id is not unique"
-#             log.error(msg)
-#             raise FreqListenerListIdNotUniqueError(msg)
-# 
-#         super(FreqListenerList, self).append(listener)
-#         msg = 'FreqListener {i} added to list'.format(i=listener)
-#         log.debug(msg)
-# 
-#     def get_listener_id_list(self):
-#         """Obtain list of ids for all the members of the list"""
-#         res = []
-# 
-#         for listener in self:
-#             fid = listener.get_id()
-#             res.append(fid)
-# 
-#         msg = 'Listener_id_list:{i}'.format(i=res)
-#         log.debug(msg)
-# 
-#         return res
-# 
-#     def get_listener_by_id(self, lid):
-#         """Return a listener by id
-#         lid -- the id to search for"""
-# 
-#         res = None
-# 
-#         for listener in self:
-#             this_id = listener.get_id()
-#             if this_id == lid:
-#                 return listener
-# 
-#         return res
-
 class RadioSources(object):
     """Class for collections of radio sources."""
 
@@ -381,7 +361,12 @@ class RadioSources(object):
     _log_dir_path = None
     _tap_dir_path = None
     _source_output_queue = None
+    _source_input_pipes = {}
+    _source_output_pipes = {}
+    _audio_sink = None
 
+    # Queues where each radio source will receive messages
+    _radio_source_input_queue_dict = {}
 
     def configure(self,conf, out_queue, log_dir_path, tap_dir_path):
         """Configure the radio sources collection
@@ -432,12 +417,37 @@ class RadioSources(object):
         """Return the probe's tap directoty path"""
 
         return self._tap_dir_path
+    
+    def get_source_output_pipes(self):
+        """Returns output pipe dicts for the sources"""
+        
+        return self._source_output_pipes
+    
+    def get_source_input_pipes(self):
+        """Returns input pipe dicts for the sources"""
+        
+        return self._source_input_pipes
+    
+    def get_radio_source_id_list(self):
+        """Obtain list of ids for all the sources"""
+ 
+        return self._radio_source_dict.keys()
 
+    def get_radio_source_by_id(self, rsid):
+        """Return a radio source by id
+        rsid -- the id to search for"""
+ 
+        return self._radio_source_dict[rsid]
+  
     def start(self):
         """Start this object and it's children"""
         for radio_source_id in self._radio_source_dict:
-            self._radio_source_dict[radio_source_id].start()
-
+            this_radio_source = self._radio_source_dict[radio_source_id]
+            this_radio_source.start()
+            radio_source_id = this_radio_source.get_id()
+            self._source_input_pipes[radio_source_id] = this_radio_source.get_input_pipe()
+            self._source_output_pipes[radio_source_id] = this_radio_source.get_output_pipe()
+            
     def stop(self):
         """Stop this object and it's children"""
         for radio_source_id in self._radio_source_dict:
@@ -463,64 +473,22 @@ class RadioSources(object):
         except radiosource.RadioSourceSupportedDevsError:
             raise
         
+        # prepare the sources input queue
+        source_input_queue = Queue()
+        
+        self._radio_source_input_queue_dict[r_source_id] = source_input_queue
+        
         # set the class to be use:
         msg = 'Will use radio source class "{rsc}"'.format(rsc=radio_source_class)
-        log.debug(msg)
+        logging.debug(msg)
         rs_class_ = getattr(radiosource, radio_source_class)
         r_source = rs_class_(conf,
-                                           self.get_out_queue(),
-                                           self.get_log_dir_path(),
-                                           self.get_tap_dir_path())
+                                        source_input_queue,
+                                        self.get_out_queue(),
+                                        self.get_log_dir_path(),
+                                        self.get_tap_dir_path())
         self._radio_source_dict[r_source_id] = r_source
 
-# class RadioSourceList(list):
-#     """Define a list of RadioSource objects."""
-# 
-#     def append(self, radio_source):
-#         """add a radio source to the list
-#         radio_source - a RadioSource to add to the list.
-#         append will not allow duplicate ids to be added."""
-# 
-#         current_id_list = self.get_radio_source_id_list()
-# 
-#         if not isinstance(radio_source, radiosource.RadioSource):
-#             msg = 'item is not of type RadioSource'
-#             log.error(msg)
-#             raise TypeError(msg)
-# 
-#         # obtain the listener id
-#         id_to_add = radio_source.get_id()
-# 
-#         if id_to_add in current_id_list:
-#             msg = "Radio source's id is not unique"
-#             log.error(msg)
-#             raise RadioSourceListIdNotUniqueError(msg)
-# 
-#         super(RadioSourceList, self).append(radio_source)
-#         msg = 'RadioSource {i} added to list'.format(i=radio_source)
-#         log.debug(msg)
-# 
-#     def get_radio_source_id_list(self):
-#         """Obtain list of ids for all the members of the list"""
-#         res = []
-# 
-#         for radio_source in self:
-#             fid = radio_source.get_id()
-#             res.append(fid)
-# 
-#         return res
-# 
-#     def get_radio_source_by_id(self, rsid):
-#         """Return a radio source by id
-#         rsid -- the id to search for"""
-# 
-#         res = None
-# 
-#         for radio_source in self:
-#             this_id = radio_source.get_id()
-#             if this_id == rsid:
-#                 return radio_source
-#         return res
 
 class Location(object):
     """Define a location."""
@@ -682,8 +650,6 @@ class DiatomiteProbe(object):
     _id = ''
     _site = DiatomiteSite()
     _radio_sources = RadioSources()
-    #    TODO: AQUI, mudar de radio RadioSourceList pra RadioSources !!!
-#     _radio_source_list = RadioSourceList()
     _radio_source_sp_handle = []
     
     _log_dir_path = None
@@ -696,9 +662,9 @@ class DiatomiteProbe(object):
     # pipe outputs for each radio source
     # index is the radio source ID
     _source_outputs = {}
-
-    manager = multiprocessing.Manager()
-    _source_output_queue = manager.Queue()
+    
+    # output queue for all radio sources 
+    _source_output_queue = Queue()
 
     def start(self):
         """Start the object and it's children"""
@@ -709,51 +675,6 @@ class DiatomiteProbe(object):
         """Stop the object and it's children"""
         # TODO: add remaining code to stop
         self._radio_sources.stop()
-
-# class Probe(object):
-#     """Defines a diatomite probe"""
-# 
-#     _id = None
-#     _log_dir_path = None
-#     _tap_dir_path = None
-#     
-#     def __init__(self, conf=None):
-# 
-#         if conf is not None:
-#             # read configuration
-#             self.configure(conf)
-# 
-#     def configure(self,conf):
-#         """Configure the Probe
-#         conf -- a dictionary with a valid configuration
-#                 (use DiaConfParser to obtain a valid config)"""
-#         
-#         self.set_id(conf['id'])
-#         self.set_log_dir_path(conf['log_dir_path'])
-#         self.set_tap_dir_path(conf['tap_dir_path'])
-# 
-#         # TODO: set the radiosources !!!
-# #         AQUI
-#         print '--------'
-#         print conf['RadioSources']
-# 
-#     def set_id(self, site_id):
-#         """Set the site's id
-#         site_id - id string"""
-#         
-#         self._id = site_id
-#         
-#     def set_log_dir_path(self, log_dir_path):
-#         """Set the site's id
-#         log_dir_path - path to the logs directory"""
-#         
-#         self._log_dir_path = log_dir_path
-#         
-#     def set_tap_dir_path(self, tap_dir):
-#         """Set the site's id
-#         tap_dir - path to the tap directory"""
-#         
-#         self._tap_dir_path = tap_dir
 
     def __init__(self, conf=None):
 
@@ -774,10 +695,9 @@ class DiatomiteProbe(object):
 
     def set_radio_sources(self, radio_sources_dict):
         """set the radio sources info
-        radio_sources_dict -- a dictionaty if radio sources configurations"""
-        
+        radio_sources_dict -- a dictionaty of radio sources configurations"""
         # pass radio sources configuration, output queue, and paths
-        self._radio_sources.configure(radio_sources_dict, 
+        self._radio_sources.configure(radio_sources_dict,
                                       self._source_output_queue,
                                       self.get_log_dir_path(),
                                       self.get_tap_dir_path())
@@ -811,7 +731,7 @@ class DiatomiteProbe(object):
         return self._log_dir_path
   
     def get_tap_dir_path(self):
-        """Return the probe's tap directoty path"""
+        """Return the probe's tap directory path"""
         
         return self._tap_dir_path
 
@@ -822,38 +742,23 @@ class DiatomiteProbe(object):
         # pass the output queue to the source
 
         try:
-            self._radio_source_list.append(conf)
+            self._radio_sources.append(conf)
         except RadioSourceListIdNotUniqueError:
             msg = ('FATAL:Radio source id {rsid} already present on this'
                    ' Probe!!').format(rsid=conf['id'].get_identifier())
-            log.error(msg)
+            logging.error(msg)
             raise
 
         msg = ("RadioSource {i} added to probe's radio source"
                " list").format(i=conf['id'])
-        log.debug(msg)
+        logging.debug(msg)
 
     def start_sources(self):
         """Start all the sources"""
-
-        _source_outputs2 = {}
-
-        # start the radio source subprocesses and get handles
-        for radio_source in self._radio_source_list:
-            # start
-            radio_source.start()
-            radio_source_id = radio_source.get_id()
-            self._source_inputs[radio_source_id] = radio_source.get_input_pipe()
-            self._source_outputs[radio_source_id] = radio_source.get_output_pipe()
-            self._radio_source_sp_handle.append(radio_source.get_subprocess())
-
-            _source_outputs2[radio_source_id] = self._source_outputs[radio_source_id]
-
-        # listen on the pipes
-        input_pipe_list = list(self._source_inputs.values())
-
-        self._monitor_radio_sources()
-
+        
+        self._radio_sources.start()
+        self._source_inputs = self._radio_sources.get_source_input_pipes()
+        self._source_outputs = self._radio_sources.get_source_output_pipes()
 
     def _monitor_radio_sources(self):
         """Monitor radio source output queue
@@ -868,7 +773,7 @@ class DiatomiteProbe(object):
             queue_item = self._source_output_queue.get()
 
             msg = "got a queue item:{qi}".format(qi=queue_item)
-            log.debug(msg)
+            logging.debug(msg)
 
             msg_items = queue_item.split(':')
             msg_item_len = len(msg_items)
@@ -880,17 +785,17 @@ class DiatomiteProbe(object):
                 msg = ('Received message in queue that is malformed:'
                        ' {data}').format(data=msg_items[0])
 
-                log.warning(msg)
+                logging.warning(msg)
             elif msg_item_len > 1:
                 # got a message from the radio source
 
                 # check if it is a known radio source
-                if msg_items[0] in self._radio_source_list.get_radio_source_id_list():
+                if msg_items[0] in self._radio_sources.get_radio_source_id_list():
 
                     rid = msg_items[0]
 
                     # check if the message is from a frequency listener on the source
-                    rsource = self._radio_source_list.get_radio_source_by_id(rid)
+                    rsource = self._radio_sources.get_radio_source_by_id(rid)
                     if msg_items[1] in rsource.get_listener_id_list():
 
                         lid = msg_items[1]
@@ -899,7 +804,7 @@ class DiatomiteProbe(object):
                                '{data}').format(rid=rid,
                                                 lid=lid,
                                                 data=msg_items[2:])
-                        log.debug(msg)
+                        logging.debug(msg)
 
                         # check if is a know msg tag from a receiver
                         listener_msg_tags = ['SIG_STATUS']
@@ -914,7 +819,7 @@ class DiatomiteProbe(object):
                                                                    lid=lid,
                                                                    state=sig_state,
                                                                    lvl=sig_level)
-                                log.debug(msg)
+                                logging.debug(msg)
 
                                 # TODO: send this to persistent data/API
 
@@ -925,7 +830,7 @@ class DiatomiteProbe(object):
                                    '{data}').format(rid=rid,
                                                     lid=lid,
                                                     data=msg_items[3:])
-                            log.warning(msg)
+                            logging.warning(msg)
                     else:
                         # message is not from a listener
                         radio_receiver_msg_tags = []
@@ -940,13 +845,13 @@ class DiatomiteProbe(object):
                                    'data:'
                                    '{data}').format(rid=msg_items[0],
                                                     data=msg_items[1:])
-                            log.warning(msg)
+                            logging.warning(msg)
 
                 else:
                     # not a know radio source
                     msg = ('Received a message from an unknown'
                            ' source:{data}').format(data=msg_items)
-                    log.warning(msg)
+                    logging.warning(msg)
 
     def stop_sources(self):
         """stop all the sources"""
@@ -969,7 +874,7 @@ class DiaConfParser(object):
             raise DiaConfParserError(msg)
         
         msg = 'Reading config file:{cf}'.format(cf=filep)
-        log.debug(msg)
+        logging.debug(msg)
         
         # check if the file can be opened
         try:
@@ -977,9 +882,9 @@ class DiaConfParser(object):
         except IOError, exc:
             msg = ('Unable to open file {f}'
                    ' with: {m}').format(f=filep, m=str(exc))
-            log.error(msg)
+            logging.error(msg)
             msg = sys.exc_info()
-            log.error(msg)
+            logging.error(msg)
             raise
 
 
@@ -995,7 +900,7 @@ class DiaConfParser(object):
             except DiaConfParserError, exc:
                 msg = ('Unable to read a valid configuration'
                        ': {m}').format(m=str(exc))
-                log.error(msg)
+                logging.error(msg)
                 raise
             _has_valid_conf_file = True
 
@@ -1199,14 +1104,14 @@ class DiaConfParser(object):
                             msg = ('Radio source audio output is disabled, '
                                    ' and listener audio output requested.'
                                    ' Disabling audio output for the listener.')
-                            log.info(msg)
+                            logging.info(msg)
                         # check if modulation is configured
                         if this_listener['audio_output'] and this_listener['modulation'] == '':
                             this_listener['audio_output'] = False
                             msg = ('Listener modulation not defined, '
                                    ' and listener audio output requested.'
                                    ' Disabling audio output for the listener.')
-                            log.info(msg)
+                            logging.info(msg)
         
                         if 'freq_analyzer_tap' not in this_listener:
                             this_listener['freq_analyzer_tap'] = False
@@ -1236,9 +1141,9 @@ class DiaConfParser(object):
             msg = ('Unable to read yaml file {f}'
                    ' with: {m}').format(f=conf_file_h.path, m=str(exc))
 
-            log.error(msg)
+            logging.error(msg)
             msg = sys.exc_info()
-            log.error(msg)
+            logging.error(msg)
             raise
     
     def get_config(self):
@@ -1250,4 +1155,3 @@ class DiaConfParser(object):
             msg = 'No valid configuration available'
             raise DiaConfParserError(msg)
         
-                   

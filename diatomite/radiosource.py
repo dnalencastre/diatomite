@@ -24,7 +24,6 @@ import logging
 import threading
 import sys
 from multiprocessing import Process, Queue
-from multiprocessing import managers as mp_managers
 from string import ascii_letters, digits
 import osmosdr
 from gnuradio import gr
@@ -36,6 +35,7 @@ from gnuradio.filter import firdes
 from gnuradio import analog
 import diatomite_aux_classes as dia_aux
 from datetime import datetime
+from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
 
 class RadioSourceFrequencyOutOfBoundsError(Exception):
     """Raised when a RadioSource is given a FreqListener that has frequency and
@@ -67,7 +67,7 @@ class RadioSourceSate(object):
 class RadioSourceSupportedDevs(object):
     """Define the supported rf devices and their classes"""
 
-    _supported_dev_dict = {'RTL2838_R820T2':{'class':'RTL2838R820T2RadioSource'}}
+    _supported_dev_dict = {'RTL2838':{'class':'RTL2838RadioSource'}}
 
     def get_supported_devs(self):
         """returns a list of supported devices."""
@@ -114,8 +114,6 @@ class RadioSource(object):
     _id = ''
 
     # list of frequency listeners
-    #    TODO: AQUI, mudar de radio RadioSourceList pra RadioSources !!!
-#     _listener_list = dia_aux.FreqListenerList()
     _listeners = dia_aux.FreqListeners()
     
 
@@ -173,18 +171,24 @@ class RadioSource(object):
     _source_subprocess = None
 
     _fft_signal_probe = None
+    
+    _log_dir_path = None
+    
+    _tap_dir_path = None
 
-    def __init__(self, conf, out_queue, log_dir_path, tap_dir_path):
+    def __init__(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
         """Initialize the radio source object.
         conf -- a dictionary with a valid configuration
                 (use DiaConfParser to obtain a valid config)
+        in_queue -- queue to be used as input for this radio source
         out_queue -- queue to be used as output for radio sources
         log_dir_path -- path where logs will be written
         tap_dir_path -- path where taps wil be created"""
 
-        if (conf is not None and out_queue is not None and
+        if (conf is not None and in_queue is not None 
+            and out_queue is not None and
             log_dir_path is not None and tap_dir_path is not None):
-            self.configure(conf, out_queue, log_dir_path, tap_dir_path)
+            self.configure(conf, in_queue, out_queue, log_dir_path, tap_dir_path)
         else:
             msg = ('Incomplete initialization.conf:{c}, output queue:{q},' 
                    ' log_dir_path:{lp},'
@@ -192,30 +196,27 @@ class RadioSource(object):
                                                lp=log_dir_path, tp=tap_dir_path)
             raise RadioSourceError(msg)
 
-    def configure(self,conf, out_queue, log_dir_path, tap_dir_path):
+    def configure(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
         """Configure the radio sources collection
         conf -- a dictionary with a valid configuration
-                (use DiaConfParser to obtain a valid config)
+                (use DiaConfParser to obtain a valid config)        
+        in_queue -- queue to be used as input for this radio source
         out_queue -- queue to be used as output for radio sources
         log_dir_path -- path where logs will be written
         tap_dir_path -- path where taps wil be created"""
 
-        # TODO: remove
-        print '--------------------'
-        print '>>>>c:{c}'.format(c=conf)
-
         self.set_log_dir_path(log_dir_path)
         self.set_tap_dir_path(tap_dir_path)
         self.set_ouptut_queue(out_queue)
-        
+        self.set_input_queue(in_queue)
+  
         self.set_id(conf['id'])
 
         self.set_audio_enable(conf['audio_output'])
 
         # radio must be initialized before setting the center
-        # freq
         self._radio_init()
-
+        self.start()
         self.set_frequency(conf['frequency'])
         
         self._source_args = conf['conf']
@@ -405,17 +406,36 @@ class RadioSource(object):
         queue -- the output queue (multiprocessing.Queue)"""
 
         type_queue = type(queue)
+        print 'qt={qt}'.format(qt=type_queue)
 
         # check if we were given an object of the right type
-        if not isinstance(queue, mp_managers.BaseProxy):
+        if not isinstance(queue, multiprocessing.queues.Queue):
+  
+            msg = ('Queue must be a queue of multiprocessing.queues.Queue,'
+                   ' was {tgtb}').format(tgtb=type_queue)
+            raise TypeError(msg)
+        
+        self._subprocess_out = queue
+        msg = 'output queue set to:{q}'.format(q=queue)
+        logging.debug(msg)
+        
+    def set_input_queue(self, queue):
+        """Set this radio source's input queue
+        queue -- the output queue (multiprocessing.Queue)"""
 
-            msg = ('Queue must be a queue of multiprocessing.managers.BaseProxy,'
+        type_queue = type(queue)
+
+        # check if we were given an object of the right type
+        if not isinstance(queue, multiprocessing.queues.Queue):
+  
+            msg = ('Queue must be a queue of multiprocessing.queues.Queue,'
                    ' was {tgtb}').format(tgtb=type_queue)
             raise TypeError(msg)
 
-        self._subprocess_out = queue
-        msg = 'Top block set.'
+        self._subprocess_in = queue
+        msg = 'input queue set to:{q}'.format(q=queue)
         logging.debug(msg)
+
 
     def set_id(self, radio_source_id):
         """Sets the radio source's  id.
@@ -629,7 +649,7 @@ class RadioSource(object):
 
     def get_listener_id_list(self):
         """Return a list of listener ids configured on this source"""
-        return self._listener_list.get_listener_id_list()
+        return self._listeners.get_listener_id_list()
 
     def get_audio_enable(self):
         """Return True if the audio sink is to be enabled."""
@@ -730,6 +750,7 @@ class RadioSource(object):
         msg = ('radio source subprocess for {id}'
                ' starting.').format(id=self.get_id())
         logging.debug(msg)
+        
         output_conn.put(msg)
 
         stop = False
@@ -744,6 +765,7 @@ class RadioSource(object):
 
         # wait for the stop command
         while not stop:
+            
             input_cmd = input_conn.get()
 
             if input_cmd == 'STOP':
@@ -766,8 +788,9 @@ class RadioSource(object):
         # setup and start the subprocess for this source
 
         self._source_subprocess = Process(target=self._run_source_subprocess,
-                                          args=(self._subprocess_out,
-                                                self._subprocess_in))
+                                        args=(self._subprocess_in,
+                                              self._subprocess_out))
+
         try:
             self._source_subprocess.start()
         except Exception, exc:
@@ -788,21 +811,9 @@ class RadioSource(object):
 
         msg = ('Stopping all frequency listeners for'
                'source {s}').format(s=self.get_id())
+        logging.info(msg)
 
-        # iterate through the listeners and start them
-        for freq_listener in self._listener_list:
-
-            try:
-                freq_listener.stop()
-            except Exception, exc:
-                msg = ('Failed stopping frequency listener with:'
-                       ' {m}').format(m=str(exc))
-                logging.debug(msg)
-                raise
-
-            msg = ('stopped frequency listener '
-                   '{fid}').format(fid=freq_listener.get_id())
-            logging.debug(msg)
+        self._listeners.stop()
 
     def start_frequency_listeners(self):
         """Start individual frequency listeners"""
@@ -824,9 +835,8 @@ class RadioSource(object):
                '{sr}').format(sr=samp_rate)
         logging.debug(msg)
 
-        # pass audio sink to all listeners
-        for freq_listener in self._listener_list:
-            freq_listener.set_audio_sink(self._audio_sink)
+        # pass audio sink to listeners
+        self._listeners.set_audio_sink(self._audio_sink)
 
     def get_audio_sink(self):
         """Returns the instance's audio sink."""
@@ -929,11 +939,11 @@ class RadioSource(object):
         logging.debug(msg)
 
 
-class RTL2838R820T2RadioSource(RadioSource):
+class RTL2838RadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2838 receiver
      and a R820T2 tuner."""
 
-    _type = 'RTL2838_R820T2'
+    _type = 'RTL2838'
     _cap_bw = 2400000
 
     # TODO: get the range using osmosdr.get_freq_range()
@@ -952,13 +962,18 @@ class RTL2838R820T2RadioSource(RadioSource):
     _antenna = ''
     _bandwith = 0
 
-    def __init__(self, conf, out_queue, log_dir_path, tap_dir_path):
+    def __init__(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
         """Initialize the radio source object.
-        radio_source_id -- the frequency listener id.
-                        Acceptable characters: ASCII characters, numbers,
-                        underscore, dash."""
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        in_queue -- queue to be used as input for this radio source
+        out_queue -- queue to be used as output for radio sources
+        log_dir_path -- path where logs will be written
+        tap_dir_path -- path where taps wil be created"""
 
-        super(RTL2838R820T2RadioSource, self).__init__(conf, out_queue, log_dir_path, tap_dir_path)
+        super(RTL2838RadioSource, self).__init__(conf, in_queue, 
+                                                out_queue, log_dir_path, 
+                                                tap_dir_path)
 
         msg = ('Initialized with type:{t}, cap_bw:{cb}, cap_freq_min:{cfmin},'
                ' cap_freq_max:{cfmax}, center_freq:{cf},'
@@ -970,7 +985,7 @@ class RTL2838R820T2RadioSource(RadioSource):
 
     def _radio_init(self):
         """Initialize the radio hw."""
-        super(RTL2838R820T2RadioSource, self)._radio_init()
+        super(RTL2838RadioSource, self)._radio_init()
 
         try:
             self._radio_source = osmosdr.source(self._source_args)
