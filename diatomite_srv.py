@@ -24,7 +24,7 @@
 
 import logging
 import argparse
-import diatomite_aux_classes as dia_aux
+import diatomite_site_probe as dia_sp
 
 def arg_parser():
     """Parse command line arguments.
@@ -49,6 +49,7 @@ def arg_parser():
 
     return args
 
+
 def main():
     """Main processing block for the server"""
 
@@ -60,17 +61,18 @@ def main():
     msg = 'Arguments:{args}'.format(args=args)
     logging.debug(msg)
 
-    dia_conf = dia_aux.DiaConfParser()
+    dia_conf = dia_sp.DiaConfParser()
 
     try:
         dia_conf.read_conf_file(args.config_file)
-    except dia_aux.DiaConfParserError, exc:
+    except dia_sp.DiaConfParserError, exc:
         msg = 'FATAL: Unable to process configurations:{m}'.format(m=exc)
         raise
 
-    this_site = dia_aux.DiatomiteSite(conf=dia_conf.get_config())
+    this_site = dia_sp.DiatomiteSite(conf=dia_conf.get_config())
 
     this_site.start()
+
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)

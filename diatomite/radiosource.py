@@ -34,13 +34,20 @@ from gnuradio.fft import logpwrfft
 from gnuradio import audio
 from gnuradio.filter import firdes
 from gnuradio import analog
-import diatomite_aux_classes as dia_aux
+import diatomite_aux as dia_aux
 from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
+import freqlistener
 
 
 class RadioSourceFrequencyOutOfBoundsError(Exception):
     """Raised when a RadioSource is given a FreqListener that has frequency and
     bandwidth that don't fit within the radio source's frequency abilites."""
+    pass
+
+
+class RadioSourceListIdNotUniqueError(Exception):
+    """Raised when a RadioSource with an already occurring id is added to a
+    RadioRecieverList."""
     pass
 
 
@@ -88,6 +95,146 @@ class RadioSourceSupportedDevs(object):
             raise RadioSourceSupportedDevsError(msg)
 
 
+class RadioSources(object):
+    """Class for collections of radio sources."""
+
+    _radio_source_dict = {}
+    _log_dir_path = None
+    _tap_dir_path = None
+    _source_output_queue = None
+    _source_input_pipes = {}
+    _source_output_pipes = {}
+    _audio_sink = None
+
+    # Queues where each radio source will receive messages
+    _radio_source_input_queue_dict = {}
+
+    def configure(self, conf, out_queue, log_dir_path, tap_dir_path):
+        """Configure the radio sources collection
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        out_queue -- queue to be used as output for radio sources
+        log_dir_path -- path where logs will be written
+        tap_dir_path -- path where taps wil be created"""
+
+        self.set_log_dir_path(log_dir_path)
+        self.set_tap_dir_path(tap_dir_path)
+        self.set_out_queue(out_queue)
+
+        # initialize each radio source
+        for radio_source_id in conf:
+
+            self.append(conf[radio_source_id])
+
+    def set_log_dir_path(self, log_dir_path):
+        """Set the probe's log path
+        log_dir_path - path to the logs directory"""
+
+        self._log_dir_path = log_dir_path
+
+    def set_out_queue(self, source_output_queue):
+        """Set output queue to be used by radio sources
+        source_output_queue -- a multiprocessing queue"""
+
+        self._source_output_queue = source_output_queue
+
+    def set_tap_dir_path(self, tap_dir):
+        """Set the probe's tap directory
+        tap_dir - path to the tap directory"""
+
+        self._tap_dir_path = tap_dir
+
+    def get_out_queue(self):
+        """Return the queue to be used by radio sources"""
+
+        return self._source_output_queue
+
+    def get_log_dir_path(self):
+        """Return the probe's log directory path"""
+
+        return self._log_dir_path
+
+    def get_tap_dir_path(self):
+        """Return the probe's tap directoty path"""
+
+        return self._tap_dir_path
+
+    def get_source_output_pipes(self):
+        """Returns output pipe dicts for the sources"""
+
+        return self._source_output_pipes
+
+    def get_source_input_pipes(self):
+        """Returns input pipe dicts for the sources"""
+
+        return self._source_input_pipes
+
+    def get_radio_source_id_list(self):
+        """Obtain list of ids for all the sources"""
+
+        return self._radio_source_dict.keys()
+
+    def get_radio_source_by_id(self, rsid):
+        """Return a radio source by id
+        rsid -- the id to search for"""
+
+        return self._radio_source_dict[rsid]
+
+    def start(self):
+        """Start this object and it's children"""
+        for radio_source_id in self._radio_source_dict:
+            this_radio_source = self._radio_source_dict[radio_source_id]
+            this_radio_source.start()
+            radio_source_id = this_radio_source.get_id()
+            self._source_input_pipes[radio_source_id] = this_radio_source.get_input_pipe()
+            self._source_output_pipes[radio_source_id] = this_radio_source.get_output_pipe()
+
+    def stop(self):
+        """Stop this object and it's children"""
+        for radio_source_id in self._radio_source_dict:
+            self._radio_source_dict[radio_source_id].stop()
+
+    def append(self, conf):
+        """Append a new radio source
+        conf -- a dictionary with a valid configuration
+            (use DiaConfParser to obtain a valid config)"""
+
+        r_source_type = conf['type']
+        r_source_id = conf['id']
+
+        if r_source_id in self._radio_source_dict.keys():
+            msg = 'Radio Source {id} Already present'.format(id=r_source_id)
+            raise RadioSourceListIdNotUniqueError(msg)
+
+        # check if the radio source type is valid and set the class accordingly
+        supported_devs = RadioSourceSupportedDevs()
+        try:
+            radio_source_class = supported_devs.get_dev_class(r_source_type)
+        except RadioSourceSupportedDevsError:
+            raise
+
+        # prepare the sources input queue
+        source_input_queue = Queue()
+
+        self._radio_source_input_queue_dict[r_source_id] = source_input_queue
+
+        # set the class to be use:
+        msg = ('Will use radio source'
+               ' class "{rsc}"').format(rsc=radio_source_class)
+        logging.debug(msg)
+
+        # determine the class to use from the type declared on the
+        # configuration file for this source
+        thismodule = sys.modules[__name__]
+        rs_class_ = getattr(thismodule, radio_source_class)
+        r_source = rs_class_(conf,
+                             source_input_queue,
+                             self.get_out_queue(),
+                             self.get_log_dir_path(),
+                             self.get_tap_dir_path())
+        self._radio_source_dict[r_source_id] = r_source
+
+
 class RadioSource(object):
     """Define a radio source.
     This usually relates to the radio hardware
@@ -117,7 +264,7 @@ class RadioSource(object):
     _id = ''
 
     # list of frequency listeners
-    _listeners = dia_aux.FreqListeners()
+    _listeners = freqlistener.FreqListeners()
 
     # define the bandwidth capability of the radio source, in hz
     _cap_bw = 0

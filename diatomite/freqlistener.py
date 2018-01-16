@@ -33,18 +33,137 @@ from gnuradio import filter as grfilter
 from gnuradio.fft import logpwrfft
 from gnuradio import analog
 import radiosource
-import diatomite_aux_classes as dia_aux
+import diatomite_aux as dia_aux
 
 
 class FreqListenerInvalidModulationError(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
 
+class FreqListenerListIdNotUniqueError(Exception):
+    """Raised when a FreqListener with an already occurring id is added to a
+    FreqlistenerList."""
+    pass
 
 class FreqListenerError(Exception):
     """Raised when a FreqListener encounters an error."""
     pass
 
+
+class FreqListeners(object):
+    """Class for collections of frequency listeners."""
+
+    _freq_listener_dict = {}
+    _tap_dir_path = None
+    _radio_source = None
+    _audio_sink = None
+    _source_output_queue = None
+    _log_dir_path = None
+
+    def configure(self, conf, radio_source, tap_dir_path):
+        """Configure the frequency listener collection
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        radio_source -- this listener's radio source
+        tap_dir_path -- path where taps wil be created"""
+
+        self.set_tap_dir_path(tap_dir_path)
+        self._radio_source = radio_source
+
+        # initialize each frequency listener
+        for freq_listener_id in conf:
+
+            self.append(conf[freq_listener_id])
+
+    def set_log_dir_path(self, log_dir_path):
+        """Set the freq listenr's log path
+        log_dir_path - path to the logs directory"""
+
+        self._log_dir_path = log_dir_path
+
+    def set_out_queue(self, source_output_queue):
+        """Set output queue to be used by frequency listener
+        source_output_queue -- a multiprocessing queue"""
+
+        self._source_output_queue = source_output_queue
+
+    def set_tap_dir_path(self, tap_dir):
+        """Set the probe's tap directory
+        tap_dir - path to the tap directory"""
+
+        self._tap_dir_path = tap_dir
+
+    def set_audio_sink(self, audio_sink):
+        """Set the audio sink for sound output
+        audio_sink -- the audio sink to use"""
+
+        self._audio_sink = audio_sink
+        for freq_listener_id in self._freq_listener_dict:
+            self._freq_listener_dict[freq_listener_id].set_audio_sink(audio_sink)
+
+    def get_out_queue(self):
+        """Return the queue to be used by frequency listener"""
+
+        return self._source_output_queue
+
+    def get_log_dir_path(self):
+        """Return the probe's log directory path"""
+
+        return self._log_dir_path
+
+    def get_tap_dir_path(self):
+        """Return the probe's tap directory path"""
+
+        return self._tap_dir_path
+
+    def get_listener_id_list(self):
+        """Obtain list of ids for all the members of the list"""
+
+        return self._freq_listener_dict.keys()
+
+    def get_listener_by_id(self, lid):
+        """Return a listener by id
+        lid -- the id to search for"""
+
+        return self._freq_listener_dict[lid]
+
+    def start(self):
+        """Start this object and it's children"""
+        for freq_listener_id in self._freq_listener_dict:
+            self._freq_listener_dict[freq_listener_id].start()
+
+    def stop(self):
+        """Stop this object and it's children"""
+
+        # iterate through the listeners and stop them
+        for freq_listener_id in self._freq_listener_dict:
+            try:
+                self._freq_listener_dict[freq_listener_id].stop()
+            except Exception, exc:
+                msg = ('Failed stopping frequency listener {id} with:'
+                       ' {m}').format(id=freq_listener_id,
+                                      m=str(exc))
+                logging.debug(msg)
+                raise
+
+            msg = ('stopped frequency listener '
+                   '{fid}').format(fid=freq_listener_id)
+            logging.debug(msg)
+
+    def append(self, conf):
+        """Append a new frequency listener
+        conf -- a dictionary with a valid configuration
+            (use DiaConfParser to obtain a valid config)"""
+
+        f_listener_id = conf['id']
+
+        if f_listener_id in self._freq_listener_dict.keys():
+            msg = 'Listener {id} already present'.format(id=f_listener_id)
+            raise radiosource.RadioSourceListIdNotUniqueError(msg)
+
+        listener = FreqListener(conf, self._radio_source,
+                                self.get_tap_dir_path())
+        self._freq_listener_dict[f_listener_id] = listener
 
 class FreqListener(object):
     """Define the subsystem to listen to a given radio frequency.
@@ -773,7 +892,7 @@ class FreqListener(object):
             self._setup_rf_fft()
         except Exception, exc:
             msg = ('Failed to setup RF FFT'
-                   'with {m}').format(m=str(exc))
+                   ' with {m}').format(m=str(exc))
             logging.debug(msg)
             raise Exception(msg)
 
@@ -785,7 +904,7 @@ class FreqListener(object):
                 self._setup_freq_analyzer_tap()
             except Exception, exc:
                 msg = ('Failed to setup fft tap'
-                       'with {m}').format(m=str(exc))
+                       ' with {m}').format(m=str(exc))
                 logging.debug(msg)
                 raise Exception(msg)
 
@@ -795,7 +914,7 @@ class FreqListener(object):
             self._setup_rf_fft_probe()
         except Exception, exc:
             msg = ('Failed to setup signal probe'
-                   'with {m}').format(m=str(exc))
+                   ' with {m}').format(m=str(exc))
             logging.debug(msg)
             raise Exception(msg)
 
