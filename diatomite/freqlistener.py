@@ -86,12 +86,52 @@ class FreqListeners(object):
         source_output_queue -- a multiprocessing queue"""
 
         self._source_output_queue = source_output_queue
+# 
+#     def set_tap_dir_path(self, tap_dir):
+#         """Set the probe's tap directory
+#         tap_dir - path to the tap directory"""
+# 
+#         self._tap_dir_path = tap_dir
+        
+    def set_tap_dir_path(self, path):
+        """Set the directory where tap files should be written to.
+        path -- full path to the directory"""
 
-    def set_tap_dir_path(self, tap_dir):
-        """Set the probe's tap directory
-        tap_dir - path to the tap directory"""
+        if path is None:
+            msg = 'Tap path not set.'
+            raise FreqListenerError(msg)
 
-        self._tap_dir_path = tap_dir
+        # check if path is absolute
+        if os.path.isabs(path):
+            tmp_tap_directory = path
+            msg = 'Tap directory is absolute'
+            logging.debug(msg)
+        else:
+            # path is relative
+
+            # check if it is to be the current directory
+            if path in ['.', './']:
+                tmp_tap_directory = os.getcwd()
+                msg = 'Tap directory is cwd'
+                logging.debug(msg)
+            else:
+                tmp_tap_directory = os.path.join(os.getcwd(), path)
+
+        msg = 'Requested tap directory is {td}'.format(td=tmp_tap_directory)
+        logging.debug(msg)
+
+        #  check if path exists and is writable
+        if not os.path.isdir(tmp_tap_directory):
+            msg = ("Tap directory {td} does not exist or isn't"
+                   " a directory").format(td=tmp_tap_directory)
+            raise FreqListenerError(msg)
+
+        if not os.access(tmp_tap_directory, os.W_OK):
+            msg = ("Tap directory {td} is not"
+                   " writable").format(td=tmp_tap_directory)
+            raise FreqListenerError(msg)
+
+        self._tap_dir_path = tmp_tap_directory
 
     def set_audio_sink(self, audio_sink):
         """Set the audio sink for sound output

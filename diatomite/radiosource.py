@@ -141,7 +141,7 @@ class RadioSources(object):
     def set_tap_dir_path(self, tap_dir):
         """Set the probe's tap directory
         tap_dir - path to the tap directory"""
-
+ 
         self._tap_dir_path = tap_dir
 
     def get_out_queue(self):
@@ -538,12 +538,6 @@ class RadioSource(object):
 
         self._log_dir_path = log_dir_path
 
-    def set_tap_dir_path(self, tap_dir):
-        """Set the probe's tap directory
-        tap_dir - path to the tap directory"""
-
-        self._tap_dir_path = tap_dir
-
     def get_log_dir_path(self):
         """Return the probe's log directory path"""
 
@@ -610,7 +604,7 @@ class RadioSource(object):
             logging.error(msg)
             raise dia_aux.BadIdError(msg)
 
-    def set_tap_directory(self, path):
+    def set_tap_dir_path(self, path):
         """Set the directory where tap files should be written to.
         path -- full path to the directory"""
 
@@ -649,6 +643,7 @@ class RadioSource(object):
             raise RadioSourceError(msg)
 
         self._tap_directory = tmp_tap_directory
+        self._tap_dir_path = tmp_tap_directory
 
     def set_frequency(self, frequency):
         """Set the source's center frequency
@@ -963,7 +958,7 @@ class RadioSource(object):
         """Stop  individual frequency listeners."""
 
         msg = ('Stopping all frequency listeners for'
-               'source {s}').format(s=self.get_id())
+               ' source {s}').format(s=self.get_id())
         logging.info(msg)
 
         self._listeners.stop()
@@ -972,7 +967,7 @@ class RadioSource(object):
         """Start individual frequency listeners"""
 
         msg = ('Starting all frequency listeners for'
-               'source {s}').format(s=self.get_id())
+               ' source {s}').format(s=self.get_id())
         logging.info(msg)
         # iterate through the listeners and start them
         self._listeners.start()

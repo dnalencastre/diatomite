@@ -21,6 +21,7 @@
 
 import logging
 import sys
+import os
 from multiprocessing import Queue
 import yaml
 import diatomite_api
@@ -72,8 +73,8 @@ class DiatomiteSite(object):
     """Define a site for diatomite probes.
     Used to give the site a name and to tie a probe to a location.
     A site may have multiple probes, but an object of this type does not need
-    to be aware of all diatomite probes existing other than the one being
-    executed by the running process."""
+    to be aware of any other diatomite probes existing other than the one
+    being executed by the running process."""
 
     _id = None
 
@@ -169,6 +170,7 @@ class DiatomiteProbe(object):
     _radio_source_sp_handle = []
 
     _log_dir_path = None
+    _log_level = logging.WARNING
     _tap_dir_path = None
 
     _api_svc = None
@@ -216,8 +218,12 @@ class DiatomiteProbe(object):
             received by diatomite
         """
 
+        self.set_log_dir_path(conf['logging']['dir_path'])
+        self.set_log_level(conf['logging']['log_level'])
+        self._configure_logging()
+
         self.set_id(conf['id'])
-        self.set_log_dir_path(conf['log_dir_path'])
+
         self.set_tap_dir_path(conf['tap_dir_path'])
 
         self.set_radio_sources(conf['RadioSources'])
@@ -226,6 +232,25 @@ class DiatomiteProbe(object):
 
         # TODO:this willl need to be moved to a proper start phase
         self.start_api_srv()
+
+    def _configure_logging(self):
+        """Configure log output for this probe"""
+                
+        log_file_path = os.path.join(self.get_log_dir_path() + os.path.sep +
+                                     'diatomite.log') 
+         
+        lfh = logging.FileHandler(log_file_path)
+        lformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        lfh.setFormatter(lformatter)
+        current_logger = logging.getLogger()
+        current_logger.setLevel(self.get_log_level())
+         
+        # remove previous lg handlers
+        for hdlr in current_logger.handlers[:]:
+            current_logger.removeHandler(hdlr)
+ 
+        # setup new handler
+        current_logger.addHandler(lfh)
 
     def start_api_srv(self):
         """start the api service"""
@@ -262,7 +287,25 @@ class DiatomiteProbe(object):
         """Set the probe's log path
         log_dir_path - path to the logs directory"""
 
-        self._log_dir_path = log_dir_path
+        if log_dir_path is None:
+            msg = 'Tap path not set will log to current dir.'
+            self._log_dir_path = os.getcwd()
+
+        # check if path is absolute         
+        if os.path.isabs(log_dir_path):
+            self._log_dir_path = log_dir_path
+            msg = 'Tap directory is absolute'
+            logging.debug(msg)
+        else:
+            # path is relative
+
+            # check if it is to be the current directory
+            if log_dir_path in ['.', './']:
+                self._log_dir_path = os.getcwd()
+                msg = 'Tap directory is cwd'
+                logging.debug(msg)
+            else:
+                self._log_dir_path = os.path.join(os.getcwd(), log_dir_path)       
 
     def set_tap_dir_path(self, tap_dir):
         """Set the probe's tap directory
@@ -279,6 +322,41 @@ class DiatomiteProbe(object):
         """Return the probe's log directory path"""
 
         return self._log_dir_path
+    
+    def set_log_level(self, level):
+        """Set the log level
+        level -- a string with the log level"""
+        
+        if level.upper() == "DEBUG":
+            self._log_level = logging.DEBUG
+            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            logging.info(msg)
+        elif level.upper() == "INFO":
+            self._log_level = logging.INFO
+            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            logging.info(msg)
+        elif level.upper() == "WARNING":
+            self._log_level = logging.WARNING
+            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            logging.info(msg)
+        elif level.upper() == "ERROR":
+            self._log_level = logging.ERROR
+            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            logging.info(msg)
+        elif level.upper() == "CRITICAL":
+            self._log_level = logging.CRITICAL
+            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            logging.info(msg)
+        else:
+            msg = ('FATAL: configuration error, malformed log_level'
+               ' configuration:{ll}. Setting to WARNING').format(ll=level)
+            logging.warning(msg)
+            self._log_level = logging.WARNING
+
+    def get_log_level(self):
+        """Return the log level"""
+        
+        return self._log_level
 
     def get_tap_dir_path(self):
         """Return the probe's tap directory path"""
@@ -409,7 +487,7 @@ class DiatomiteProbe(object):
     def stop_sources(self):
         """stop all the sources"""
         pass
-        # TODO: add method to stop all radio sources
+        # TODO: add code to stop all radio sources
 
 
 class DiaConfParser(object):
@@ -463,8 +541,30 @@ class DiaConfParser(object):
             msg = 'Unable to get a meaningful configuration'
             raise DiaConfParserError(msg)
 
+    def _process_config_log(self, conf):
+        """Check log configuration for completeness, add default values.
+        conf -- a dict of configurations
+        Returns a dict with logging configurations"""
+
+        if 'dir_path' not in conf:
+            conf['dir_path'] = ''
+        
+        if 'log_level' not in conf:
+            conf['log_level'] = 'ERROR'
+        else:
+            if conf['log_level'].upper() not in ("DEBUG", "INFO", "WARNING",
+                                                 "ERROR", "CRITICAL"):
+                msg = ('FATAL: configuration error, malformed log_level'
+                   ' configuration:{ll}.'
+                   ' Setting to WARNING').format(ll=conf['log_level'])
+                logging.warning(msg)
+                conf['log_level'] = 'WARNING'
+
+        return conf
+
     def _process_config(self, conf):
-        """Check configuration file for completeness, add default values."""
+        """Check configuration file for completeness, add default values.
+        conf -- a dict of configurations"""
 
         # check if 'site' section exists
         try:
@@ -524,8 +624,13 @@ class DiaConfParser(object):
                 # fill the up with appropriate values if those are missing
                 if 'tap_dir_path' not in this_probe:
                     this_probe['tap_dir_path'] = ''
-                if 'log_dir_path' not in this_probe:
-                    this_probe['log_dir_path'] = ''
+                    
+                    
+                if 'logging' not in this_probe:
+                    log_conf = {}
+                new_log_conf = self._process_config_log(this_probe['logging'])
+
+                this_probe['logging'] = new_log_conf
 
                 # check for 'RadioSources' section
                 try:

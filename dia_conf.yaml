@@ -13,7 +13,7 @@ sites:
     location: "On the lab"
     # each site must have one probe
     probes:
-      # the probe section is it's own id
+      # each probe section is header is the probe's id
       "test_probe_1":
         # mandatory fields for a probe:
         # RadioSources (a list of radio sources)
@@ -23,16 +23,22 @@ sites:
         #     server runs (when a leading "/" is missing, a relative path
         #     is assumed).
         #     if empty, taps will not be activated
-        # log_dir_path : path to where logs should be kept
-        #     either an absolute path or relative to the directory where the
-        #     server runs (when a leading "/" is missing, a relative path
-        #     is assumed).
-        #     if empty, logs won't be kept
         tap_dir_path: "taps"
-        log_dir_path: "logs"
-        # each probe must have at least one radio source
+        # each probe may have a logging section
+        logging:
+          # optional fields for the logging section
+          dir_path: "log"
+          # dir_path:  path to directory where logs should be kept
+          #     either an absolute path or relative to the directory where the
+          #     server runs (when a leading "/" is missing, a relative path
+          #     is assumed).
+          #     if empty or absent, logs won't be kept
+          log_level: "debug"
+          # log_level: one of "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+          #     if empty or absent, will use the default level of "WARNING"
+        # each probe must have a RadioSources section
         RadioSources:
-          # each radio source's section is it's own id
+          # each radio source's section header is the source's id
           "rs1":
               # mandatory fields:
               #   type: The type of hardware being used, string
@@ -50,7 +56,7 @@ sites:
               # each radio source must have at least one listener
               freq_analyzer_tap: "True"
               listeners:
-                # each listener's section is it's own id 
+                # each listener's section header is the listener's id 
                 "ln11":
                     # mandatory fields
                     # frequency: Frequency to be monitored.
@@ -72,7 +78,8 @@ sites:
                     modulation: "FM"
                     bandwidth: "200000"
                     level_threshold: "-65"
-                    audio_output: "False"
+                    audio_output: "True"
+                    #audio_output: "False"
                     freq_analyzer_tap: "True"
                 "ln12":
                     modulation: "FM"

@@ -77,10 +77,8 @@ class DataTap(object):
         """Setup the tap and Create the named pipe.
         tap_id -- id to """
 
-
         if tap_dir_path is not None:
             self.set_directory(tap_dir_path)
-
         else:
             # init the directory as the current directory
             self._tap_dir_path = os.getcwd()
