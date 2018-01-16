@@ -48,6 +48,7 @@ sites:
               audio_output: "True"
               frequency: "90e6"
               # each radio source must have at least one listener
+              freq_analyzer_tap: "True"
               listeners:
                 # each listener's section is it's own id 
                 "ln11":

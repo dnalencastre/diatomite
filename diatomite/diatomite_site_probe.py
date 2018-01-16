@@ -191,6 +191,8 @@ class DiatomiteProbe(object):
         # TODO: add remaining code to start
         self._radio_sources.start()
 
+        self._monitor_radio_sources()
+
     def stop(self):
         """Stop the object and it's children"""
         # TODO: add remaining code to stop
@@ -580,6 +582,19 @@ class DiaConfParser(object):
                                 this_r_source['audio_output'] = False
                             elif this_r_source['audio_output'].lower() == 'true':
                                 this_r_source['audio_output'] = True
+
+                    if 'freq_analyzer_tap' not in this_r_source:
+                        this_r_source['freq_analyzer_tap'] = False
+                    else:
+                        if this_r_source['freq_analyzer_tap'].lower() not in ('false', 'true'):
+                            msg = ('FATAL: configuration error, malformed'
+                                   ' source freq_analyzer_tap option')
+                            raise DiaConfParserError(msg)
+                        else:
+                            if this_r_source['freq_analyzer_tap'].lower() == 'false':
+                                this_r_source['freq_analyzer_tap'] = False
+                            elif this_r_source['freq_analyzer_tap'].lower() == 'true':
+                                this_r_source['freq_analyzer_tap'] = True
 
                     # check if there are listeners
                     try:

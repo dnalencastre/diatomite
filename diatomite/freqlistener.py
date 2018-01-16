@@ -322,13 +322,6 @@ class FreqListener(object):
             # set the frequency offset
             self.set_frequency_offset(self._radio_source.get_center_frequency())
 
-            # set the tap directory path
-            try:
-                self.set_tap_dir_path(self._radio_source.get_tap_dir_path())
-            except FreqListenerError, exc:
-                msg = 'Unable to set tap directory. {exc}'.format(exc=exc)
-                logging.debug(msg)
-
         else:
             msg = 'radio_source must be a RadioSource object'
             raise TypeError(msg)
@@ -807,7 +800,7 @@ class FreqListener(object):
         logging.debug(msg)
 
         try:
-            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id())
+            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(), self.get_tap_dir_path())
         except Exception, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             logging.error(msg)

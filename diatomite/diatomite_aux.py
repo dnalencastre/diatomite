@@ -73,14 +73,19 @@ class DataTap(object):
     _tap_file_name = None
     _tap_file_path = None
 
-    def __init__(self, tap_id):
+    def __init__(self, tap_id, tap_dir_path=None):
         """Setup the tap and Create the named pipe.
         tap_id -- id to """
 
-        self._set_id(tap_id)
 
-        # init the directory as the current directory
-        self._tap_dir_path = os.getcwd()
+        if tap_dir_path is not None:
+            self.set_directory(tap_dir_path)
+
+        else:
+            # init the directory as the current directory
+            self._tap_dir_path = os.getcwd()
+
+        self._set_id(tap_id)
 
         # set a lock
         self._tap_lock = threading.RLock()

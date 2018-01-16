@@ -24,6 +24,7 @@ import logging
 import threading
 import sys
 from multiprocessing import Process, Queue
+from multiprocessing import queues as mp_queues
 from string import ascii_letters, digits
 from datetime import datetime
 import osmosdr
@@ -35,7 +36,6 @@ from gnuradio import audio
 from gnuradio.filter import firdes
 from gnuradio import analog
 import diatomite_aux as dia_aux
-from Crypto.SelfTest.Random.test__UserFriendlyRNG import multiprocessing
 import freqlistener
 
 
@@ -365,6 +365,8 @@ class RadioSource(object):
 
         self.set_audio_enable(conf['audio_output'])
 
+        self.set_spectrum_analyzer_tap_enable(conf['freq_analyzer_tap'])
+
         # radio must be initialized before setting the center
         self._radio_init()
         self.start()
@@ -471,7 +473,7 @@ class RadioSource(object):
         logging.debug(msg)
 
         try:
-            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id())
+            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(), self.get_tap_dir_path())
         except Exception, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             logging.error(msg)
@@ -560,7 +562,7 @@ class RadioSource(object):
         print 'qt={qt}'.format(qt=type_queue)
 
         # check if we were given an object of the right type
-        if not isinstance(queue, multiprocessing.queues.Queue):
+        if not isinstance(queue, mp_queues.Queue):
 
             msg = ('Queue must be a queue of multiprocessing.queues.Queue,'
                    ' was {tgtb}').format(tgtb=type_queue)
@@ -577,7 +579,7 @@ class RadioSource(object):
         type_queue = type(queue)
 
         # check if we were given an object of the right type
-        if not isinstance(queue, multiprocessing.queues.Queue):
+        if not isinstance(queue, mp_queues.Queue):
 
             msg = ('Queue must be a queue of multiprocessing.queues.Queue,'
                    ' was {tgtb}').format(tgtb=type_queue)
@@ -699,7 +701,7 @@ class RadioSource(object):
         false otherwise.
         enable -- boolean (Default is True/enabled)"""
 
-        if self.get_tap_directory() is None:
+        if self.get_tap_dir_path() is None:
             create_tap = False
             msg = 'Tap directory not set. Spectrum analyzer not available'
             logging.warning(msg)
@@ -711,6 +713,7 @@ class RadioSource(object):
             raise TypeError(msg)
         msg = ('Radio source {id} frequency analyzer tap creation set to'
                ' {val}').format(val=create_tap, id=self.get_id())
+
         logging.debug(msg)
 
     def add_frequency_listener(self, listener):
