@@ -240,7 +240,9 @@ class DiatomiteProbe(object):
                                      'diatomite.log') 
          
         lfh = logging.FileHandler(log_file_path)
-        lformatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        lformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        lformatter = logging.Formatter('%(asctime)s - %(filename)s:%(lineno)s - %(funcName)s - %(levelname)s - %(message)s')
+        
         lfh.setFormatter(lformatter)
         current_logger = logging.getLogger()
         current_logger.setLevel(self.get_log_level())

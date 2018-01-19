@@ -68,8 +68,11 @@ class FreqListeners(object):
         tap_dir_path -- path where taps wil be created"""
 
         self.set_tap_dir_path(tap_dir_path)
-        self._radio_source = radio_source
+        self.set_radio_source(radio_source)
 
+        msg = 'Freqlisteners to be configured:{fl}'.format(fl=conf)
+        logging.debug(msg)
+        
         # initialize each frequency listener
         for freq_listener_id in conf:
 
@@ -86,13 +89,20 @@ class FreqListeners(object):
         source_output_queue -- a multiprocessing queue"""
 
         self._source_output_queue = source_output_queue
-# 
-#     def set_tap_dir_path(self, tap_dir):
-#         """Set the probe's tap directory
-#         tap_dir - path to the tap directory"""
-# 
-#         self._tap_dir_path = tap_dir
-        
+
+    def set_radio_source(self, radio_source):
+        """Sets the radio source to which the listeners will connect.
+        Also sets the top block and the frequency offset.
+        radio_soure -- object of RadioSource class"""
+        if isinstance(radio_source, radiosource.RadioSource):
+
+            # set the radio source
+            self._radio_source = radio_source
+
+        else:
+            msg = 'radio_source must be a RadioSource object'
+            raise TypeError(msg)
+
     def set_tap_dir_path(self, path):
         """Set the directory where tap files should be written to.
         path -- full path to the directory"""
@@ -169,6 +179,7 @@ class FreqListeners(object):
 
     def start(self):
         """Start this object and it's children"""
+        
         for freq_listener_id in self._freq_listener_dict:
             self._freq_listener_dict[freq_listener_id].start()
 
@@ -196,6 +207,10 @@ class FreqListeners(object):
             (use DiaConfParser to obtain a valid config)"""
 
         f_listener_id = conf['id']
+        
+        msg = ('appending listener {id} to the'
+               ' Listeners').format(id=f_listener_id)
+        logging.debug(msg)
 
         if f_listener_id in self._freq_listener_dict.keys():
             msg = 'Listener {id} already present'.format(id=f_listener_id)
@@ -224,8 +239,6 @@ class FreqListener(object):
     _modulation = ''
 
     _supported_modulations = ['fm', 'am']
-
-    # TODO: unify fft probe and tap initialization and teardown
 
     _decimation = 1
     _samp_rate = 500000
@@ -298,6 +311,9 @@ class FreqListener(object):
         self.set_tap_dir_path(tap_dir_path)
 
         self.set_id(conf['id'])
+        
+        msg = ('configuring listener {l}.').format(l=self.get_id())
+        logging.debug(msg)
 
         self.set_frequency(conf['frequency'])
 
@@ -306,6 +322,8 @@ class FreqListener(object):
         self.set_bandwidth(conf['bandwidth'])
 
         self.set_signal_pwr_threshold(conf['level_threshold'])
+        msg = '----->> LT:{lt}'.format(lt=conf['level_threshold'])
+        logging.debug(msg)
 
         self.set_spectrum_analyzer_tap_enable(conf['freq_analyzer_tap'])
 
@@ -347,6 +365,15 @@ class FreqListener(object):
             logging.error(msg)
             raise dia_aux.BadIdError(msg)
 
+    def set_top_block(self, top_block):
+        """Sets the GNU radio top block to be used by this listener
+        top_block -- the gnu radio top block
+        """
+        
+        # set the top block
+        self._set_gr_top_block(top_block)
+#         self._set_gr_top_block(self._radio_source.get_gr_top_block())
+
     def set_radio_source(self, radio_source):
         """Sets the radio source to which this listener is connected to.
         Also sets the top block and the frequency offset.
@@ -355,9 +382,6 @@ class FreqListener(object):
 
             # set the radio source
             self._radio_source = radio_source
-
-            # set the top block
-            self._set_gr_top_block(self._radio_source.get_gr_top_block())
 
             # set the frequency offset
             self.set_frequency_offset(self._radio_source.get_center_frequency())
@@ -460,8 +484,6 @@ class FreqListener(object):
         msg = 'Frequency offset set to {i}'.format(i=self._frequency_offset)
         logging.debug(msg)
 
-        # TODO: may need to notify working parts of the radio source
-
     def set_bandwidth(self, bandwidth):
         """Sets the bandwidth for the listener.
         bandwidth -- the bandwidth in Hz (integer)"""
@@ -554,9 +576,19 @@ class FreqListener(object):
         can be determined by looking at the frequency analyzer and choosing
         a level between the noise floor and the peak of the signal.
         """
-        if isNumberType(pwr_threshold):
-            if pwr_threshold < 0:
-                self._signal_pwr_threshold = pwr_threshold
+        
+        try:
+            self._signal_pwr_threshold = int(pwr_threshold)
+        except ValueError:            
+            msg = ('Signal power threshold not a'
+                   ' valid number:{v}').format(v=pwr_threshold)
+            logging.error(msg)
+            raise FreqListenerError(msg)
+            
+        msg = ('{li} signal power threshold set'
+               ' at:{pt}').format(li=self.get_id(),
+                                  pt=self._signal_pwr_threshold)
+        logging.debug(msg)
 
     def get_audio_enable(self):
         """Return True if the audio output is to be enabled."""
@@ -756,6 +788,11 @@ class FreqListener(object):
 
         # compute average for the slice
         signal_avg = numpy.mean(fft_val[slice_start:slice_end])
+        
+        
+        msg = 'Signal:{s} , threshold:{t}'.format(s=signal_avg,
+                                                  t=self.get_signal_pwr_threshold())
+        logging.debug(msg)
 
         if signal_avg >= self.get_signal_pwr_threshold():
             self.notify_signal_present(signal_avg)
@@ -901,6 +938,9 @@ class FreqListener(object):
 
     def start(self):
         """Start the frequency listener."""
+
+        # set the top block
+        self.set_top_block(self._radio_source.get_gr_top_block())
 
         # configure frequency translator
         try:

@@ -78,8 +78,8 @@ sites:
                     modulation: "FM"
                     bandwidth: "200000"
                     level_threshold: "-65"
-                    audio_output: "True"
-                    #audio_output: "False"
+#                    audio_output: "True"
+                    audio_output: "False"
                     freq_analyzer_tap: "True"
                 "ln12":
                     modulation: "FM"
