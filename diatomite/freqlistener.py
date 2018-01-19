@@ -27,6 +27,7 @@ from string import ascii_letters, digits
 from operator import isNumberType
 import logging
 import numpy
+import collections
 from gnuradio import gr
 from gnuradio import blocks
 from gnuradio import filter as grfilter
@@ -280,6 +281,9 @@ class FreqListener(object):
     _freq_translation_filter_output = None
 
     _retrieve_fft_thread = None
+    
+    # FIFO for keeping last few averages
+    _avg_sig_col = None
 
     # frequency offset from the radio source
     _frequency_offset = 0
@@ -300,6 +304,12 @@ class FreqListener(object):
             msg = ('Incomplete initialization.conf:{c}'
                    ' tap_dir_pat:{tp}').format(c=conf, tp=tap_dir_path)
             raise FreqListenerError(msg)
+
+        # initialize the queue, will keep enough for a second of signals 
+        # (self._probe_poll_rate is the number of times the probe happens
+        # per second)
+        self._avg_sig_col = collections.deque(self._probe_poll_rate*[0],
+                                              self._probe_poll_rate)
 
     def configure(self, conf, radio_source, tap_dir_path):
         """Configure the radio sources collection
@@ -776,6 +786,10 @@ class FreqListener(object):
         fft_val -- fft tuple/array to be checked
         """
 
+        # TODO: current method not enough
+        #     may need to keep a running average and decide by checking this
+        #     average to the power threshold
+
         # slice lenght to evaluate (%)
         slice_percentage = 10
 
@@ -789,15 +803,26 @@ class FreqListener(object):
         # compute average for the slice
         signal_avg = numpy.mean(fft_val[slice_start:slice_end])
         
+        # update signal collection
+        self._avg_sig_col.pop()
+        self._avg_sig_col.appendleft(signal_avg)
         
-        msg = 'Signal:{s} , threshold:{t}'.format(s=signal_avg,
-                                                  t=self.get_signal_pwr_threshold())
+        # calculate running average for the signal:
+
+        running_avg =  sum(self._avg_sig_col) / float(len(self._avg_sig_col))
+        
+        msg = ('{lid} Signal:{s}, running avg:{ra}, asg:{asq} ,'
+               ' threshold:{t}').format(lid=self.get_id(), s=signal_avg,
+                                        ra=running_avg, asq=self._avg_sig_col,
+                                        t=self.get_signal_pwr_threshold())
         logging.debug(msg)
 
-        if signal_avg >= self.get_signal_pwr_threshold():
-            self.notify_signal_present(signal_avg)
+        if signal_avg == 0:
+            self.notify_signal_absent(running_avg)
+        elif running_avg >= self.get_signal_pwr_threshold():
+            self.notify_signal_present(running_avg)
         else:
-            self.notify_signal_absent(signal_avg)
+            self.notify_signal_absent(running_avg)
 
     def notify_signal_present(self, signal_level):
         """Notify that the signal is present and the current level

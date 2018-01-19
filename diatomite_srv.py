@@ -27,6 +27,7 @@ import argparse
 import diatomite_site_probe as dia_sp
 
 
+# TODO: remove tracefunc before release
 def tracefunc(frame, event, arg, indent=[0]):
     import inspect
     import os
