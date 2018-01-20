@@ -25,12 +25,366 @@ import sys
 import errno
 import threading
 import exceptions
+import datetime
 from string import ascii_letters, digits
+from enum import Enum
+import json
 
 class BadIdError(Exception):
     """Raised when an object is passed an id with unacceptable
     characters."""
     pass
+
+
+class DiaSysStatus(Enum):
+    """Defines possible system and subsystem states for Diatomite"""
+    INIT = 1 # when listener/receiver is initialized
+    START = 2 # when listener/receiver is starting
+    RUN = 3 # when listener/receiver is running
+    SHUTDOWN = 4 # when listener/receiver is stopping
+    STOP = 5 # when listener/receiver is stopped
+
+
+class DiaSigStatus(Enum):
+    """Defines possible signal states for Diatomite"""
+    INIT = 1 # when listener is initialized
+    START = 2 # when listener is starting
+    PRESENT = 3 # when signal is detected as present
+    ABSENT = 4 # when signal is not detected
+    INOP = 5 # When listener is not operating
+
+
+class DiaMsgType(Enum):
+    """Defines possible message types"""
+    LNR_SIG_STATE = 1 # listener signal state, reporting on a listener's signal state information
+    LNR_SIG_STATUS_CHANGE = 2 # listener signal state change, reporting that a listener's signal status has changed from the  previous status
+    LNR_STATE_CHANGE = 3 # reporting a change on listener state
+    RCV_STATE_CHANGE = 4 # reporting a change on receiver state
+
+class DiaSigInfo(object):
+    """Defines signal state info
+    This class will contain either current or historical info"""
+
+    _data = {
+        # status of the signal, a DiaSigStatus object
+        'status': None,
+        # time at which the change was effected
+        'time': None,
+        # signal level in DBM
+        'sig_level' : None
+        }
+
+    def __init__(self, sig_status, sig_level, time):
+        """Initializes the signal information
+        sig_status -- a DiaSigStatus object
+        sig_level -- signal level, in DBm
+        time -- the time when the status change was affected/detected
+            in iso format utc timezone"""
+        
+        if not isinstance(sig_status, DiaSigStatus):
+            msg = 'Invalid signal status type, must be DiaSigStatus'
+            raise TypeError(msg)
+
+        self._data['status'] = sig_status
+        self._data['sig_level'] = sig_level
+        self._data['time'] = time
+
+    def get_json(self):
+        """Return a json representation of this data"""
+        return json.dumps(self._data)
+
+    def get_status(self):
+        """returns the status info"""
+        return self._data['status']
+
+    def get_time(self):
+        """returns the time at which the state change was affected/detected"""
+        return self._data['time']
+
+    def get_level(self):
+        """Returns the signal level"""
+        return self._data['sig_level']
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        self._data = json.loads(data)
+
+
+class DiaSysInfo(object):
+    """Defines receiver and listener state info
+    This class will contain either current or historical info"""
+
+    _data = {
+        # status of the receiver or listener, a DiaSysStatus object
+        'status': None,
+        # time at which the change was effected
+        'time': None
+        }
+
+    def __init__(self, sys_status, time):
+        """Initializes the system information
+        sys_status -- a DiaSysStatus object
+        time -- the time when the status change was affected/detected
+            in iso format utc timezone"""
+
+        if not isinstance(sys_status, DiaSysStatus):
+            msg = 'Invalid system status type, must be DiaSysStatus'
+            raise TypeError(msg)
+
+        self._data['satus'] = sys_status
+        self._data['time'] = time
+
+    def get_json(self):
+        """Return a json representation of this data"""
+        return json.dumps(self._data)
+
+    def get_status(self):
+        """returns the status info"""
+        return self._data['status']
+
+    def get_time(self):
+        """returns the time at which the state change was affected/detected"""
+        return self._data['time']
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        self._data = json.loads(data)
+
+
+class DiaSigState(object):
+    """Defines a signal status, both current state and previous state"""
+
+    _data = {
+            # the current status, a DiaSysInfo Object
+            'current': None,
+            # the previous status, a DiaSysInfo Object
+            'previous': None
+        }
+
+    def __init__(self):
+        """"Initialize the state,
+        both current and previous will be initialized as DiaSysStatus.INIT,
+        and a current time"""
+
+        current_time = datetime.datetime.utcnow().isoformat()
+        level = 0
+
+        self._data['current'] = DiaSigInfo(DiaSysStatus.INIT, level, current_time)
+        self._data['previous'] = DiaSigInfo(DiaSysStatus.INIT, level, current_time)
+
+    def set_current(self, sig_info):
+        """Sets the current state to a new state, and updates the previous
+        sig_info -- a DiaSigInfo object"""
+
+        if not isinstance(sig_info, DiaSigInfo):
+            msg = 'Invalid system info type, must be DiaSigInfo'
+            raise TypeError(msg)
+
+        self._data['previous'] = self._data['current']
+        self._data['current'] = sig_info
+
+    def get_current(self):
+        """returns the current state
+        returns a DiaSigInfo object"""
+
+        return self._data['current']
+
+    def get_json(self):
+        """Return a json representation of this data"""
+
+        current = self._data['current'].get_json()        
+        previous = self._data['previous'].get_json()
+
+        ret_data = {
+                'current': current,
+                'previous' : previous
+            }
+
+        return json.dumps(ret_data)
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        t_data = json.loads(data)
+
+        current_time = datetime.datetime.utcnow().isoformat()
+
+        current = DiaSysInfo(DiaSigStatus.INIT, current_time)
+        current.set_json(t_data['current'])
+
+        previous = DiaSysInfo(DiaSigStatus.INIT, current_time)
+        previous.set_json(t_data['previous'])
+
+        self._data['current'] = current
+        self._data['previous'] = previous
+
+
+class DiaListenerMsg(object):
+    """Class to encapsulate data sent by a listener"""
+
+    _data = {
+            # the type of signal to send, of type DiaMsgType
+            'msg_type': None,
+            
+            # the id for the listener that originated the message 
+            'lnr_id': None,
+            
+            # the payload of the message
+            'payload': None
+        }
+
+    def __init__(self, sig_type, lnr_id, payload):
+        """initialize the object
+        sig_type -- signal type, a DiaMsgType object
+        lnr_id -- Listener Id
+        payload -- data to send, either a json string or a DiaListernerMsg"""
+ 
+        if not isinstance(sig_type, DiaMsgType):
+            msg = 'Invalid message type, must be DiaMsgType'
+            raise TypeError(msg)
+
+        self._data['lnr_id'] = lnr_id
+        self._data['msg_type'] = sig_type       
+        self._data['payload'] = payload
+        
+    def get_msg_type(self):
+        """Return the message type, a DiaMsgType"""
+        return self._data['msg_type']
+    
+    def get_lnr_id(self):
+        """Return sending listener's id"""
+        return self._data['lnr_id']
+    
+    def get_payload(self):
+        """Return the payload"""
+        return self._data['payload']
+
+    def get_json(self):
+        """Return a json representation of this data"""
+        return json.dumps(self._data)
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        self._data = json.loads(data)        
+
+
+class DiaRadioReceiverMsg(object):
+    """Class to encapsulate data sent by a receiver"""
+    
+    _data = {
+            # the type of signal to send, of type DiaMsgType
+            'msg_type': None,
+            
+            # the id for the RadioReceiver that originated the message 
+            'rrv_id': None,
+            
+            # the payload of the message, json or dict
+            'payload': None
+        }
+
+    def __init__(self, msg_type, rcv_id, payload):
+        """initialize the object
+        msg_type -- message type, a DiaMsgType object
+        rrv_id -- RadioReceiver Id
+        payload -- data to send, either a json string or a DiaListernerMsg"""
+
+        if not isinstance(msg_type, DiaMsgType):
+            msg = 'Invalid message type, must be DiaMsgType'
+            raise TypeError(msg)
+
+        self._data['rrv_id'] = rcv_id
+        self._data['msg_type'] = msg_type
+
+        if isinstance(payload, DiaListenerMsg):
+            self._data['payload'] = payload.get_json()
+        else:
+            self._data['payload'] = payload
+
+    def get_msg_type(self):
+        """Return the message type, a DiaMsgType"""
+        return self._data['msg_type']
+
+    def get_rcv_id(self):
+        """Return sending radio receiver's id"""
+        return self._data['rrv_id']
+    
+    def get_payload(self):
+        """Return the payload"""
+        return self._data['payload']
+
+    def get_json(self):
+        """Return a json representation of this data"""
+        return json.dumps(self._data)
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        self._data = json.loads(data)
+
+
+class DiaSysState(object):
+    """Defines a receiver and listener status, both current state
+    and the previous state"""
+
+    _data = {
+            # the current status, a DiaSysInfo Object
+            'current': None,
+            # the previous status, a DiaSysInfo Object
+            'previous': None
+        }
+
+    def __init__(self):
+        """"Initialize the state,
+        both current and previous will be initialized as DiaSysStatus.INIT,
+        and a current time"""
+
+        current_time = datetime.datetime.utcnow().isoformat()
+
+        self._data['current'] = DiaSysInfo(DiaSysStatus.INIT, current_time)
+        self._data['previous'] = DiaSysInfo(DiaSysStatus.INIT, current_time)
+
+    def set_current(self, sys_info):
+        """Sets the current state to a new state, and updates the previous
+        sys_info -- a DiaSysInfo object"""
+
+        if not isinstance(sys_info, DiaSysInfo):
+            msg = 'Invalid system info type, must be DiaSysInfo'
+            raise TypeError(msg)
+
+        self._data['previous'] = self._data['current']
+        self._data['current'] = sys_info
+
+    def get_current(self):
+        """returns the current state
+        returns a DiaSysInfo object"""
+
+        return self._data['current']
+
+    def get_json(self):
+        """Return a json representation of this data"""
+
+        current = self._data['current'].get_json()        
+        previous = self._data['previous'].get_json()
+
+        ret_data = {
+                'current': current,
+                'previous' : previous
+            }
+
+        return json.dumps(ret_data)
+
+    def set_json(self, data):
+        """Sets the data from json"""
+        t_data = json.loads(data)
+
+        current_time = datetime.datetime.utcnow().isoformat()
+
+        current = DiaSysInfo(DiaSysStatus.INIT, current_time)
+        current.set_json(t_data['current'])
+
+        previous = DiaSysInfo(DiaSysStatus.INIT, current_time)
+        previous.set_json(t_data['previous'])
+
+        self._data['current'] = current
+        self._data['previous'] = previous
 
 
 class RadioSpectrum(object):
