@@ -33,7 +33,8 @@ sites:
           #     server runs (when a leading "/" is missing, a relative path
           #     is assumed).
           #     if empty or absent, logs won't be kept
-          log_level: "debug"
+#          log_level: "debug"
+          log_level: "INFO"
           # log_level: one of "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
           #     if empty or absent, will use the default level of "WARNING"
         # each probe must have a RadioSources section
@@ -52,7 +53,9 @@ sites:
               #     "True" to activate, "False" to deactivate . Default is deactivated 
               type: "RTL2838"
               audio_output: "True"
-              frequency: "90e6"
+#              frequency: "90e6"
+#              frequency: "88e6"
+              frequency: "89e6"
               # each radio source must have at least one listener
               freq_analyzer_tap: "True"
               listeners:
@@ -77,15 +80,21 @@ sites:
                     frequency: "89.5e6"
                     modulation: "FM"
                     bandwidth: "200000"
-                    level_threshold: "-65"
-#                    audio_output: "True"
-                    audio_output: "False"
+                    level_threshold: "-70"
+                    audio_output: "True"
+#                    audio_output: "False"
                     freq_analyzer_tap: "True"
-                "ln12":
-                    modulation: "FM"
-                    frequency: "90000000"
-                    bandwidth: "200000"
-                    level_threshold: "-65"
+#                "ln12":
+#                    modulation: "FM"
+#                    frequency: "90750000"
+#                    bandwidth: "200000"
+#                    level_threshold: "-65"
+#                    modulation: "FM"
+#                    bandwidth: "200000"
+#                    level_threshold: "-75"
+#                    audio_output: "True"
+##                    audio_output: "False"
+#                    freq_analyzer_tap: "True"
 #          "rs2":
 #              type: "RTL2838_R820T2"
 #              frequency: "102e6"                

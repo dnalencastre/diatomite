@@ -21,13 +21,12 @@
 """
 
 import os
-import datetime
+from datetime import datetime
 import threading
 from string import ascii_letters, digits
-from operator import isNumberType
 import logging
-import numpy
 import collections
+import numpy
 from gnuradio import gr
 from gnuradio import blocks
 from gnuradio import filter as grfilter
@@ -54,12 +53,29 @@ class FreqListenerError(Exception):
 class FreqListeners(object):
     """Class for collections of frequency listeners."""
 
-    _freq_listener_dict = {}
-    _tap_dir_path = None
-    _radio_source = None
-    _audio_sink = None
-    _source_output_queue = None
-    _log_dir_path = None
+    def __init__(self, conf, radio_source, tap_dir_path):
+        """Configure the frequency listener collection
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        radio_source -- this listener's radio source
+        tap_dir_path -- path where taps wil be created"""
+
+        self._freq_listener_dict = {}
+        self._tap_dir_path = None
+        self._radio_source = None
+        self._audio_sink = None
+        self._source_output_queue = None
+        self._log_dir_path = None
+
+        if (conf is not None and radio_source is not None and
+                tap_dir_path is not None):
+            self.configure(conf, radio_source, tap_dir_path)
+        else:
+            msg = ('Incomplete initialization.conf:{c}, radio source:{rs},'
+                   ' tap_dir_pat:{tp}').format(c=conf, rs=radio_source,
+                                               tp=tap_dir_path)
+            raise FreqListenerError(msg)
+
 
     def configure(self, conf, radio_source, tap_dir_path):
         """Configure the frequency listener collection
@@ -73,7 +89,7 @@ class FreqListeners(object):
 
         msg = 'Freqlisteners to be configured:{fl}'.format(fl=conf)
         logging.debug(msg)
-        
+
         # initialize each frequency listener
         for freq_listener_id in conf:
 
@@ -180,7 +196,7 @@ class FreqListeners(object):
 
     def start(self):
         """Start this object and it's children"""
-        
+
         for freq_listener_id in self._freq_listener_dict:
             self._freq_listener_dict[freq_listener_id].start()
 
@@ -208,7 +224,7 @@ class FreqListeners(object):
             (use DiaConfParser to obtain a valid config)"""
 
         f_listener_id = conf['id']
-        
+
         msg = ('appending listener {id} to the'
                ' Listeners').format(id=f_listener_id)
         logging.debug(msg)
@@ -227,75 +243,73 @@ class FreqListener(object):
     from a radio signal.
     """
 
-    # id for this listener
-    _id = ''
-
-    # frequency in hz
-    _frequency = 1
-
-    # bandwidth
-    _bandwidth = 1
-
-    # modulation
-    _modulation = ''
-
-    _supported_modulations = ['fm', 'am']
-
-    _decimation = 1
-    _samp_rate = 500000
-    _transition_bw = 2000
-    _filter_taps = None
-    _gr_top_block = None
-
-    _log_fft = None
-    _fft_size = 1024
-    _fft_ref_scale = 2
-    _fft_frame_rate = 30
-    _fft_avg_alpha = 1.0
-    _fft_average = False
-
-    # probe poll rate in hz
-    _probe_poll_rate = 10
-
-    # Signal power threshold to determine if it's transmitting.
-    _signal_pwr_threshold = None
-
-    _create_fft_tap = False
-    _spectrum_analyzer_enable = False
-
-    _freq_analyzer_tap = None
-
-    _tap_directory = None
-
-    _status = 'PRE_INIT'
-
-    _probe_stop = threading.Event()
-
-    _audio_enable = False
-
-    _radio_source = None
-
-    _audio_sink = None
-
-    _freq_translation_filter_input = None
-    _freq_translation_filter_output = None
-
-    _retrieve_fft_thread = None
-    
-    # FIFO for keeping last few averages
-    _avg_sig_col = None
-
-    # frequency offset from the radio source
-    _frequency_offset = 0
-
-    _fft_signal_probe = None
-
     def __init__(self, conf, radio_source, tap_dir_path):
         """init the FreqListener
         conf -- a dictionary with a valid configuration
                 (use DiaConfParser to obtain a valid config)
         radio_source -- this listener's radio source
         tap_dir_path -- path where taps wil be created"""
+
+        # id for this listener
+        self._id = None
+
+        # frequency in hz
+        self._frequency = 1
+
+        # bandwidth
+        self._bandwidth = 1
+
+        # modulation
+        self._modulation = ''
+
+        self._supported_modulations = ['fm', 'am']
+
+        self._decimation = 1
+        self._samp_rate = 500000
+        self._transition_bw = 2000
+        self._filter_taps = None
+        self._gr_top_block = None
+
+        self._log_fft = None
+        self._fft_size = 1024
+        self._fft_ref_scale = 2
+        self._fft_frame_rate = 30
+        self._fft_avg_alpha = 1.0
+        self._fft_average = False
+
+        # probe poll rate in hz
+        self._probe_poll_rate = 10
+
+        # Signal power threshold to determine if it's transmitting.
+        self._signal_pwr_threshold = None
+
+        self._create_fft_tap = False
+        self._spectrum_analyzer_enable = False
+
+        self._freq_analyzer_tap = None
+
+        self._tap_directory = None
+
+        self._sys_state = None
+        self._sig_state = dia_aux.DiaSigState()
+
+        self._probe_stop = threading.Event()
+
+        self._audio_enable = False
+
+        self._radio_source = None
+
+        self._audio_sink = None
+
+        self._freq_translation_filter_input = None
+        self._freq_translation_filter_output = None
+
+        self._retrieve_fft_thread = None
+
+        # frequency offset from the radio source
+        self._frequency_offset = 0
+
+        self._fft_signal_probe = None
 
         if (conf is not None and radio_source is not None
                 and tap_dir_path is not None):
@@ -305,11 +319,24 @@ class FreqListener(object):
                    ' tap_dir_pat:{tp}').format(c=conf, tp=tap_dir_path)
             raise FreqListenerError(msg)
 
-        # initialize the queue, will keep enough for a second of signals 
+        # initialize the queue, will keep enough for a second of signals
         # (self._probe_poll_rate is the number of times the probe happens
         # per second)
         self._avg_sig_col = collections.deque(self._probe_poll_rate*[0],
                                               self._probe_poll_rate)
+
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.INIT,
+                                             current_time)
+
+        self._notify_sys_state_change()
+
+        current_time = datetime.utcnow().isoformat()
+        level = 0
+        new_sig_state = dia_aux.DiaSigInfo(dia_aux.DiaSigStatus.INIT, level,
+                                           current_time)
+        self._sig_state.set_new(new_sig_state)
+        self._notify_sig_state_change()
 
     def configure(self, conf, radio_source, tap_dir_path):
         """Configure the radio sources collection
@@ -318,10 +345,17 @@ class FreqListener(object):
         radio_source -- this listener's radio source
         tap_dir_path -- path where taps wil be created"""
 
+        self.set_radio_source(radio_source)
+        self.set_id(conf['id'])
+
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.PRE_INIT,
+                                             current_time)
+
+        self._notify_sys_state_change()
+
         self.set_tap_dir_path(tap_dir_path)
 
-        self.set_id(conf['id'])
-        
         msg = ('configuring listener {l}.').format(l=self.get_id())
         logging.debug(msg)
 
@@ -338,8 +372,6 @@ class FreqListener(object):
         self.set_spectrum_analyzer_tap_enable(conf['freq_analyzer_tap'])
 
         self.set_audio_enable(conf['audio_output'])
-
-        self.set_radio_source(radio_source)
 
         msg = ('Initialized with freq {f}, bw:{bw}, modulation:{md},'
                ' tap_dir:{td}, tap_out:{to} , audio_out:{ao}'
@@ -379,7 +411,7 @@ class FreqListener(object):
         """Sets the GNU radio top block to be used by this listener
         top_block -- the gnu radio top block
         """
-        
+
         # set the top block
         self._set_gr_top_block(top_block)
 #         self._set_gr_top_block(self._radio_source.get_gr_top_block())
@@ -479,6 +511,11 @@ class FreqListener(object):
             # As the frequency may be expressed as a string of float number
             # convert it from string to float to int
             self._frequency = int(float(frequency))
+
+            # set the frequency offset so that the filters work
+            rscf = self._radio_source.get_center_frequency()
+            self.set_frequency_offset(rscf)
+
             msg = 'Frequency set to {i}'.format(i=frequency)
             logging.debug(msg)
 
@@ -489,7 +526,7 @@ class FreqListener(object):
                                          frequency in Hz"""
 
         self._frequency_offset = (radio_source_center_frequency -
-                                  self._frequency) * - 1
+                                  self.get_frequency()) * - 1
 
         msg = 'Frequency offset set to {i}'.format(i=self._frequency_offset)
         logging.debug(msg)
@@ -586,15 +623,15 @@ class FreqListener(object):
         can be determined by looking at the frequency analyzer and choosing
         a level between the noise floor and the peak of the signal.
         """
-        
+
         try:
             self._signal_pwr_threshold = int(pwr_threshold)
-        except ValueError:            
+        except ValueError:
             msg = ('Signal power threshold not a'
                    ' valid number:{v}').format(v=pwr_threshold)
             logging.error(msg)
             raise FreqListenerError(msg)
-            
+
         msg = ('{li} signal power threshold set'
                ' at:{pt}').format(li=self.get_id(),
                                   pt=self._signal_pwr_threshold)
@@ -779,16 +816,13 @@ class FreqListener(object):
         msg = 'FFT connected to Frequency translation.'
         logging.debug(msg)
 
-    def _check_signal_present(self, fft_val):
+    def _check_signal_present(self, fft_val, current_time):
         """Check if the signal is present by comparing the power to the power
         threshold, evaluating the average level on a slice of the FFT around
         the center frequency.
         fft_val -- fft tuple/array to be checked
+        current_time -- time when the signal was collected
         """
-
-        # TODO: current method not enough
-        #     may need to keep a running average and decide by checking this
-        #     average to the power threshold
 
         # slice lenght to evaluate (%)
         slice_percentage = 10
@@ -802,15 +836,14 @@ class FreqListener(object):
 
         # compute average for the slice
         signal_avg = numpy.mean(fft_val[slice_start:slice_end])
-        
+
         # update signal collection
         self._avg_sig_col.pop()
         self._avg_sig_col.appendleft(signal_avg)
-        
-        # calculate running average for the signal:
 
-        running_avg =  sum(self._avg_sig_col) / float(len(self._avg_sig_col))
-        
+        # calculate running average for the signal:
+        running_avg = sum(self._avg_sig_col) / float(len(self._avg_sig_col))
+
         msg = ('{lid} Signal:{s}, running avg:{ra}, asg:{asq} ,'
                ' threshold:{t}').format(lid=self.get_id(), s=signal_avg,
                                         ra=running_avg, asq=self._avg_sig_col,
@@ -818,45 +851,30 @@ class FreqListener(object):
         logging.debug(msg)
 
         if signal_avg == 0:
-            self.notify_signal_absent(running_avg)
+            sig_level = 0
+            sig_status = dia_aux.DiaSigStatus.ABSENT
         elif running_avg >= self.get_signal_pwr_threshold():
-            self.notify_signal_present(running_avg)
+            sig_status = dia_aux.DiaSigStatus.PRESENT
+            sig_level = signal_avg
         else:
-            self.notify_signal_absent(running_avg)
+            sig_status = dia_aux.DiaSigStatus.ABSENT
+            sig_level = signal_avg
 
-    def notify_signal_present(self, signal_level):
-        """Notify that the signal is present and the current level
-        signal_level -- the signal level in DBm
-        Passes a notification to the receiver of the format
-            '{listener_id}:SIG_STATUS:PRESENT:{level as a number}'"""
 
-        my_id = self.get_id()
+        new_sig_info = dia_aux.DiaSigInfo(sig_status, sig_level,
+                                          current_time)
 
-        msg = ('{i}:Sending signal PRESENT notification. '
-               'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
-        logging.debug(msg)
+        # check if signal state changed:
 
-        out_msg = '{i}:SIG_STATUS:PRESENT:{lvl}'.format(i=my_id,
-                                                        lvl=signal_level)
-        # pass the notification to the receiver
-        self._radio_source.send_data(out_msg)
+        if sig_status != self._sig_state.get_current().get_status():
+            # state changed, update state and level and notify
+            self._sig_state.set_new(new_sig_info)
 
-    def notify_signal_absent(self, signal_level):
-        """Notify that the signal is absent and the current level
-        signal_level -- the signal level in DBm
-        Passes a notification to the receiver of the format
-            'SIG_STATUS:ABSENT:{level as a number}'"""
-
-        my_id = self.get_id()
-
-        msg = ('{i}:Sending signal ABSENT notification. '
-               'Level {lvl} DBm').format(i=my_id, lvl=signal_level)
-        logging.debug(msg)
-
-        out_msg = '{i}:SIG_STATUS:ABSENT:{lvl}'.format(i=my_id,
-                                                       lvl=signal_level)
-        # pass the notification to the receiver
-        self._radio_source.send_data(out_msg)
+            self._notify_sig_state_change()
+        else:
+            # state did not change, update only level
+            self._sig_state.update_current(new_sig_info)
+            self._notify_sig_level()
 
     def _retrieve_fft(self, stop_event):
         """Retrieve fft values"""
@@ -867,7 +885,7 @@ class FreqListener(object):
 
         while not stop_event.is_set():
 
-            current_time = datetime.datetime.utcnow().isoformat()
+            current_time = datetime.utcnow().isoformat()
 
             # logpower fft swaps the lower and upper halfs of
             # the spectrum, this fixes it
@@ -875,7 +893,7 @@ class FreqListener(object):
             val = vraw[len(vraw)/2:]+vraw[:len(vraw)/2]
 
             # check if the signal is present
-            self._check_signal_present(val)
+            self._check_signal_present(val, current_time)
 
             # update taps
             if self.get_spectrum_analyser_tap_enable():
@@ -964,6 +982,18 @@ class FreqListener(object):
     def start(self):
         """Start the frequency listener."""
 
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.START,
+                                             current_time)
+        self._notify_sys_state_change()
+
+        current_time = datetime.utcnow().isoformat()
+        level = 0
+        new_sig_state = dia_aux.DiaSigInfo(dia_aux.DiaSigStatus.START, level,
+                                           current_time)
+        self._sig_state.set_new(new_sig_state)
+        self._notify_sig_state_change()
+
         # set the top block
         self.set_top_block(self._radio_source.get_gr_top_block())
 
@@ -1016,11 +1046,14 @@ class FreqListener(object):
             logging.debug(msg)
             raise Exception(msg)
 
-        self._status = 'RUNNING'
-
         # start sound output
         if self.get_audio_enable():
             self.do_snd_output()
+
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.RUN,
+                                             current_time)
+        self._notify_sys_state_change()
 
     def stop(self):
         """Stop the frequency listener """
@@ -1028,7 +1061,19 @@ class FreqListener(object):
         msg = 'stopping frequency listener {id}'.format(id=self.get_id())
         logging.debug(msg)
 
-        if self._status == 'RUNNING':
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.SHUTDOWN,
+                                             current_time)
+        self._notify_sys_state_change()
+
+        current_time = datetime.utcnow().isoformat()
+        level = 0
+        new_sig_state = dia_aux.DiaSigInfo(dia_aux.DiaSigStatus.SHUTDOWN, level,
+                                           current_time)
+        self._sig_state.set_new(new_sig_state)
+        self._notify_sig_state_change()
+
+        if self._sys_state.get_status() == dia_aux.DiaSysStatus.RUN:
 
             if self.get_spectrum_analyser_tap_enable():
                 # stop the fft tap
@@ -1049,12 +1094,16 @@ class FreqListener(object):
 
         else:
             msg = ("Will not stop listener, as status is"
-                   " {s}").format(s=self._status)
+                   " {s}").format(s=self._sys_state.get_status().name)
             logging.error(msg)
             msg = 'not yet done'
             raise FreqListenerError(msg)
 
-        # TODO: add the fft data retrieval
+        current_time = datetime.utcnow().isoformat()
+        self._sys_state = dia_aux.DiaSysInfo(dia_aux.DiaSysStatus.STOP,
+                                             current_time)
+
+        self._notify_sys_state_change()
 
     def do_snd_output(self):
         """Configure for sound output for the listener"""
@@ -1103,3 +1152,45 @@ class FreqListener(object):
 
         msg = 'started demodulation'
         logging.debug(msg)
+
+    def _notify_sys_state_change(self):
+        """Notify RadioSource of the listener's system state change"""
+
+        lnr_id = self.get_id()
+        sig_type = dia_aux.DiaMsgType.LNR_SYS_STATE_CHANGE
+        payload = self._sys_state.get_json()
+        new_msg = dia_aux.DiaListenerMsg(sig_type, lnr_id, payload)
+
+        msg = ('listener {lnr} sending sys state'
+               ' change message:{m}').format(lnr=lnr_id, m=new_msg)
+        logging.debug(msg)
+
+        self._radio_source.send_data(new_msg)
+
+    def _notify_sig_state_change(self):
+        """Notify RadioSource of the listener's signal state change"""
+
+        lnr_id = self.get_id()
+        sig_type = dia_aux.DiaMsgType.LNR_SIG_STATUS_CHANGE
+        payload = self._sig_state.get_json()
+        new_msg = dia_aux.DiaListenerMsg(sig_type, lnr_id, payload)
+
+        msg = ('listener {lnr} sending sig state'
+               ' change message:{m}').format(lnr=lnr_id, m=new_msg)
+        logging.debug(msg)
+
+        self._radio_source.send_data(new_msg)
+
+    def _notify_sig_level(self):
+        """Notify RadioSource of the listener's signal level"""
+
+        lnr_id = self.get_id()
+        sig_type = dia_aux.DiaMsgType.LNR_SIG_STATE
+        payload = self._sig_state.get_json()
+        new_msg = dia_aux.DiaListenerMsg(sig_type, lnr_id, payload)
+
+        msg = ('listener {lnr} sending sig level'
+               ' message:{m}').format(lnr=lnr_id, m=new_msg)
+        logging.debug(msg)
+
+        self._radio_source.send_data(new_msg)

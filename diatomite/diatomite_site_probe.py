@@ -39,23 +39,25 @@ class Probes(object):
 
     _probe_dict = {}
 
-    def __init__(self, probes_conf=None, site_conf=None):
+    def __init__(self, probes_conf=None, site_conf=None, site_id=None):
         """Initialize the Probes collection
         probes_conf -- a dictionary with a valid configuration
         site_conf -- a dictionary with the site configuratio"""
-        if probes_conf is not None and site_conf is not None:
+        if (probes_conf is not None and site_conf is not None
+                and site_id is not None):
             # read configuration
-            self.configure(probes_conf, site_conf)
+            self.configure(probes_conf, site_conf, site_id)
 
-    def configure(self, probes_conf, site_conf):
+    def configure(self, probes_conf, site_conf, site_id):
         """Configure the Probes collection
         probes_conf -- a dictionary with a valid configuration
-        site_conf -- a dictionary with the site configuratio"""
+        site_conf -- a dictionary with the site configuratio
+        site_id -- the site id"""
 
         # initialize each probe
         # although there should only be one probe
         for probe_id in probes_conf:
-            this_probe = DiatomiteProbe(probes_conf[probe_id], site_conf)
+            this_probe = DiatomiteProbe(probes_conf[probe_id], site_conf, site_id)
             self._probe_dict[probe_id] = this_probe
 
     def start(self):
@@ -76,18 +78,21 @@ class DiatomiteSite(object):
     to be aware of any other diatomite probes existing other than the one
     being executed by the running process."""
 
-    _id = None
 
-    # Location for this site
-    _location = dia_aux.Location()
 
-    _type = None
-    _probes = Probes()
 
-    # Site name
-    site_name = ''
 
     def __init__(self, conf=None):
+
+        self._id = None
+
+        # Location for this site
+        self._location = dia_aux.Location()
+
+        self._type = None
+        self._probes = None
+        # Site name
+        self.site_name = ''
 
         if conf is not None:
             # read configuration
@@ -146,8 +151,7 @@ class DiatomiteSite(object):
         probes_conf -- a dictionary of probe configurations
         site_conf -- a dictionary with the site's configuration
         """
-
-        self._probes.configure(probes_conf, site_conf)
+        self._probes = Probes(probes_conf, site_conf, self)
 
     def start(self):
         """Start this object and it's children"""
@@ -164,48 +168,39 @@ class DiatomiteProbe(object):
     A diatomite probe has one or more radio sources
     """
 
-    _id = ''
-    _site = DiatomiteSite()
-    _radio_sources = radiosource.RadioSources()
-    _radio_source_sp_handle = []
-
-    _log_dir_path = None
-    _log_level = logging.WARNING
-    _tap_dir_path = None
-
-    _api_svc = None
-    _api_svc_input_pipe = None
-    _api_svc_output_pipe = None
-
-    # pipe inputs for each radio source
-    # index is the radio source ID
-    _source_inputs = {}
-
-    # pipe outputs for each radio source
-    # index is the radio source ID
-    _source_outputs = {}
-
-    # output queue for all radio sources
-    _source_output_queue = Queue()
-
-    def start(self):
-        """Start the object and it's children"""
-        # TODO: add remaining code to start
-        self._radio_sources.start()
-
-        self._monitor_radio_sources()
-
-    def stop(self):
-        """Stop the object and it's children"""
-        # TODO: add remaining code to stop
-        self._radio_sources.stop()
-
-    def __init__(self, conf=None, full_conf=None):
+    def __init__(self, conf=None, full_conf=None, dia_site=None):
         """Configure the Probe
         conf -- a dictionary with a valid probe configuration
         full_conf -- a dictionary with the full configuration
             received by diatomite
         """
+
+        self._id = ''
+        self._site = DiatomiteSite()
+        self._radio_sources = None
+        self._radio_source_sp_handle = []
+
+        self._log_dir_path = None
+        self._log_level = logging.WARNING
+        self._tap_dir_path = None
+
+        self._api_svc = None
+        self._api_svc_input_pipe = None
+        self._api_svc_output_pipe = None
+
+        # pipe inputs for each radio source
+        # index is the radio source ID
+        self._source_inputs = {}
+
+        # pipe outputs for each radio source
+        # index is the radio source ID
+        self._source_outputs = {}
+
+        # output queue for all radio sources
+        self._source_output_queue = Queue()
+
+        if dia_site is not None:
+            self.set_site(dia_site)
 
         if conf is not None and full_conf is not None:
             # read configuration
@@ -235,22 +230,25 @@ class DiatomiteProbe(object):
 
     def _configure_logging(self):
         """Configure log output for this probe"""
-                
+
         log_file_path = os.path.join(self.get_log_dir_path() + os.path.sep +
-                                     'diatomite.log') 
-         
+                                     'diatomite.log')
+
         lfh = logging.FileHandler(log_file_path)
-        lformatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        lformatter = logging.Formatter('%(asctime)s - %(filename)s:%(lineno)s - %(funcName)s - %(levelname)s - %(message)s')
-        
+        lformatter = logging.Formatter('%(asctime)s - %(name)s'
+                                       ' - %(levelname)s - %(message)s')
+        lformatter = logging.Formatter('%(asctime)s - %(filename)s:%(lineno)s '
+                                       ' - %(funcName)s - %(levelname)s'
+                                       ' - %(message)s')
+
         lfh.setFormatter(lformatter)
         current_logger = logging.getLogger()
         current_logger.setLevel(self.get_log_level())
-         
+
         # remove previous lg handlers
         for hdlr in current_logger.handlers[:]:
             current_logger.removeHandler(hdlr)
- 
+
         # setup new handler
         current_logger.addHandler(lfh)
 
@@ -275,15 +273,25 @@ class DiatomiteProbe(object):
         """set the radio sources info
         radio_sources_dict -- a dictionaty of radio sources configurations"""
         # pass radio sources configuration, output queue, and paths
-        self._radio_sources.configure(radio_sources_dict,
-                                      self._source_output_queue,
-                                      self.get_log_dir_path(),
-                                      self.get_tap_dir_path())
+        self._radio_sources = radiosource.RadioSources(radio_sources_dict,
+                                                       self._source_output_queue,
+                                                       self.get_log_dir_path(),
+                                                       self.get_tap_dir_path())
 
     def set_id(self, pid):
         """Set the id of this probe
         pid -- id of the probe"""
         self._id = pid
+
+    def set_site(self, site):
+        """Set the site object to which this probe belongs to
+        site -- a DiatomiteSite object"""
+
+        if isinstance(site, DiatomiteSite):
+            self._site = site
+        else:
+            msg = 'Invalid site type, must be DiatomiteSite.'
+            raise TypeError(msg)
 
     def set_log_dir_path(self, log_dir_path):
         """Set the probe's log path
@@ -293,7 +301,7 @@ class DiatomiteProbe(object):
             msg = 'Tap path not set will log to current dir.'
             self._log_dir_path = os.getcwd()
 
-        # check if path is absolute         
+        # check if path is absolute
         if os.path.isabs(log_dir_path):
             self._log_dir_path = log_dir_path
             msg = 'Tap directory is absolute'
@@ -307,7 +315,7 @@ class DiatomiteProbe(object):
                 msg = 'Tap directory is cwd'
                 logging.debug(msg)
             else:
-                self._log_dir_path = os.path.join(os.getcwd(), log_dir_path)       
+                self._log_dir_path = os.path.join(os.getcwd(), log_dir_path)
 
     def set_tap_dir_path(self, tap_dir):
         """Set the probe's tap directory
@@ -317,18 +325,21 @@ class DiatomiteProbe(object):
 
     def get_id(self):
         """Return the id of this probe"""
-
         return self._id
+
+    def get_site(self):
+        """Return the parent site object"""
+        return self._site
 
     def get_log_dir_path(self):
         """Return the probe's log directory path"""
 
         return self._log_dir_path
-    
+
     def set_log_level(self, level):
         """Set the log level
         level -- a string with the log level"""
-        
+
         if level.upper() == "DEBUG":
             self._log_level = logging.DEBUG
             msg = 'logging level will be set to {l}.'.format(l=level.upper())
@@ -351,13 +362,13 @@ class DiatomiteProbe(object):
             logging.info(msg)
         else:
             msg = ('FATAL: configuration error, malformed log_level'
-               ' configuration:{ll}. Setting to WARNING').format(ll=level)
+                   ' configuration:{ll}. Setting to WARNING').format(ll=level)
             logging.warning(msg)
             self._log_level = logging.WARNING
 
     def get_log_level(self):
         """Return the log level"""
-        
+
         return self._log_level
 
     def get_tap_dir_path(self):
@@ -406,90 +417,57 @@ class DiatomiteProbe(object):
             msg = "got a queue item:{qi}".format(qi=queue_item)
             logging.debug(msg)
 
-            msg_items = queue_item.split(':')
-            msg_item_len = len(msg_items)
+            if isinstance(queue_item, dia_aux.DiaRadioReceiverMsg):
+                msg = ('Received message from a'
+                       ' Radio Receiver:{m}').format(m=queue_item.get_json())
 
-            if msg_item_len == 1:
-                # only got the id of the radio source
-                # shouldn't happen
+                # package message onto a DiaProbeMsg
+                prb_id = self.get_id()
+                sig_type = queue_item.get_msg_type()
+                payload = queue_item
+                new_p_msg = dia_aux.DiaProbeMsg(sig_type, prb_id, payload)
 
-                msg = ('Received message in queue that is malformed:'
-                       ' {data}').format(data=msg_items[0])
+                # package message onto a SiteProbeMSg
+                site_id = self.get_site().get_id()
 
-                logging.warning(msg)
-            elif msg_item_len > 1:
-                # got a message from the radio source
+                sig_type = queue_item.get_msg_type()
+                payload = new_p_msg
+                new_msg = dia_aux.DiaSiteMsg(sig_type, site_id, payload)
 
-                # check if it is a known radio source
-                if msg_items[0] in self._radio_sources.get_radio_source_id_list():
+                msg = ('Site {si} sending {msg}'
+                       ' message:{m}').format(si=site_id,
+                                              msg=sig_type,
+                                              m=new_msg.get_json())
+                logging.debug(msg)
 
-                    rid = msg_items[0]
+                # send the message to the API server
+                self.send_data_to_api(new_msg)
 
-                    # check if the message is from a frequency listener on the
-                    # source
-                    rsource = self._radio_sources.get_radio_source_by_id(rid)
-                    if msg_items[1] in rsource.get_listener_id_list():
+    def send_data_to_api(self, data):
+        """Sends data to the API server.
+        data -- data to send"""
 
-                        lid = msg_items[1]
-                        msg = ('Received message from radio source {rid}:'
-                               'Listener {lid}: data:'
-                               '{data}').format(rid=rid,
-                                                lid=lid,
-                                                data=msg_items[2:])
-                        logging.debug(msg)
-
-                        # check if is a know msg tag from a receiver
-                        listener_msg_tags = ['SIG_STATUS']
-                        if msg_items[2] in listener_msg_tags:
-                            if msg_items[2] == 'SIG_STATUS':
-
-                                sig_state = msg_items[3]
-                                sig_level = msg_items[4]
-                                msg = ('Received message from radio source'
-                                       ' {rid}, Listener {lid}: SIGNAL {state}'
-                                       ', level:{lvl}'
-                                       ' DBm').format(rid=rid,
-                                                      lid=lid,
-                                                      state=sig_state,
-                                                      lvl=sig_level)
-                                logging.debug(msg)
-
-                                # TODO: send this to persistent data/API
-
-                        else:
-                            # unknown message from listener
-                            msg = ('Received unknown message from source {rid}'
-                                   ', Listener {lid}: data:'
-                                   '{data}').format(rid=rid,
-                                                    lid=lid,
-                                                    data=msg_items[3:])
-                            logging.warning(msg)
-                    else:
-                        # message is not from a listener
-                        radio_receiver_msg_tags = []
-
-                        # check if is a know msg tag from the receiver
-                        if msg_items[1] in radio_receiver_msg_tags:
-
-                            # process the message tag
-                            pass
-                        else:
-                            msg = ('Received unknown message from source'
-                                   ' {rid}: data:'
-                                   '{data}').format(rid=msg_items[0],
-                                                    data=msg_items[1:])
-                            logging.warning(msg)
-
-                else:
-                    # not a know radio source
-                    msg = ('Received a message from an unknown'
-                           ' source:{data}').format(data=msg_items)
-                    logging.warning(msg)
+        if isinstance(data, dia_aux.DiaSiteMsg):
+            self._api_svc_input_pipe.put(data)
+            msg = 'sending data to parent:{d}'.format(d=data)
+            logging.debug(msg)
 
     def stop_sources(self):
         """stop all the sources"""
         pass
         # TODO: add code to stop all radio sources
+
+    def start(self):
+        """Start the object and it's children"""
+        # TODO: add remaining code to start
+        self._radio_sources.start()
+
+        self._monitor_radio_sources()
+
+    def stop(self):
+        """Stop the object and it's children"""
+        # TODO: add remaining code to stop
+        self._radio_sources.stop()
 
 
 class DiaConfParser(object):
@@ -550,15 +528,15 @@ class DiaConfParser(object):
 
         if 'dir_path' not in conf:
             conf['dir_path'] = ''
-        
+
         if 'log_level' not in conf:
             conf['log_level'] = 'ERROR'
         else:
             if conf['log_level'].upper() not in ("DEBUG", "INFO", "WARNING",
                                                  "ERROR", "CRITICAL"):
                 msg = ('FATAL: configuration error, malformed log_level'
-                   ' configuration:{ll}.'
-                   ' Setting to WARNING').format(ll=conf['log_level'])
+                       ' configuration:{ll}.'
+                       ' Setting to WARNING').format(ll=conf['log_level'])
                 logging.warning(msg)
                 conf['log_level'] = 'WARNING'
 
@@ -626,11 +604,11 @@ class DiaConfParser(object):
                 # fill the up with appropriate values if those are missing
                 if 'tap_dir_path' not in this_probe:
                     this_probe['tap_dir_path'] = ''
-                    
-                    
+
                 if 'logging' not in this_probe:
-                    log_conf = {}
-                new_log_conf = self._process_config_log(this_probe['logging'])
+                    new_log_conf = {}
+                else:
+                    new_log_conf = self._process_config_log(this_probe['logging'])
 
                 this_probe['logging'] = new_log_conf
 
