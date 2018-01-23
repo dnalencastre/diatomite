@@ -16,7 +16,7 @@ sites:
   	# optional fields for a site:
   	# address : text)
   	# type : text, eg: "mobile probe" or "Fixed probe"
-  	# latitude : text, latitude geographical coordinates for the site 
+  	# latitude : text, latitude geographical coordinates for the site
   	# longitude : text, longitude geographical coordinates for the site
   	# coord_type : text, type of geographical coordinates (ex:, "deg,min,sec")
     location: "On the lab"
@@ -56,29 +56,29 @@ sites:
               #   centered on this frequency. (including each listener's bandwith)
               #   in Hz, either int or a power of ten format (89000000 or 89.5e6)
           	  # Optional fields
-          	  #   conf: configuration string for the hardware (future use). 
+          	  #   conf: configuration string for the hardware (future use).
               #   audio_output: if audio output of this source's listeners may be activated
-              #     "True" to activate, "False" to deactivate . Default is deactivated 
+              #     "True" to activate, "False" to deactivate . Default is deactivated
               type: "RTL2838_R820T2"
               audio_output: "True"
               frequency: "90e6"
               # each radio source must have at least one listener
               listeners:
-              	# each listener's section header is it's own id 
+              	# each listener's section header is it's own id
                 "<listener_id>":
                     # mandatory fields
                     # frequency: Frequency to be monitored.
                     #   in Hz, either int or a power of ten format (89000000 or 89.5e6)
-                    # bandwidth: expected bandwidth of the signal to be monitored 
+                    # bandwidth: expected bandwidth of the signal to be monitored
                     #   in Hz, either int or a power of ten format (200000 or 200e3)
                     # level_threshold: level above which the signal is to be considered "present".
                     #	This should be a level above the noise floor.int, in DBM
                     #
                     # Optional fields
-                    # 	audio_output: if audio output of this listener is to be done. 
-                    #     "True" to activate, "False" to deactivate . Default is deactivated 
-                    #   modulation: modulation to be used if audio output is configured 
-                    #     (currently only FM). No default. If not configured, audio output 
+                    # 	audio_output: if audio output of this listener is to be done.
+                    #     "True" to activate, "False" to deactivate . Default is deactivated
+                    #   modulation: modulation to be used if audio output is configured
+                    #     (currently only FM). No default. If not configured, audio output
                     #     will be disabled.
                     #   freq_analyzer_tap: if frequency analyzer tap is to be activated
                     #     "True" to activate, "False" to deactivate . Default is deactivated
@@ -94,7 +94,7 @@ sites:
                     level_threshold: "-65"
           "<radio_source_id>":
               type: "RTL2838_R820T2"
-              frequency: "102e6"                
+              frequency: "102e6"
               listeners:
                 "<listener_id>":
                   frequency: "97000000"
