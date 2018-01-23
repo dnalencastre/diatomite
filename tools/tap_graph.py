@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 """
-    Display graphs of values from taps.
+    Display graphs of values from Diatomite RF analyzer taps.
     Copyright (C) 2017 Duarte Alencastre
 
     This program is free software: you can redistribute it and/or modify
@@ -25,15 +25,16 @@ import argparse
 import logging
 from ast import literal_eval as make_tuple
 
+
 def tap_graph_main(args):
     """Output the graphic"""
 
     g = Gnuplot.Gnuplot()
     graph_title = ''
     g.title("Log power FFT")
-    
+
     g.xlabel("frequency")
-    g.ylabel("DBm")    
+    g.ylabel("DBm")
 
     while True:
         with open(args.input_file, 'r') as f_handle:
@@ -47,46 +48,50 @@ def tap_graph_main(args):
                         # got incomplete line, read next one
                         msg = 'Tap has incomplete line'
                         logging.warning(msg)
-                    else:                                     
+                    else:
                         fft_values = make_tuple(fft_values_raw.rstrip())
                         fft_values_len = len(fft_values)
 
                         low_freq = int(lf)
                         high_freq = int(hf)
-                        
-                        freq_step = float((float(hf)-float(lf)) / fft_values_len)
+
+                        freq_step = float((float(hf) - float(lf)) / fft_values_len)
 
 
-                        x = numpy.arange (start=low_freq, stop=high_freq, step=freq_step, dtype='float_')
+                        x = numpy.arange(start=low_freq,
+                                         stop=high_freq,
+                                         step=freq_step,
+                                         dtype='float_')
 
                         y_values = fft_values
                         x_values = x
-                        
-#                         slice = 
+
+#                         slice =
                         g.set_range('yrange', (-110, 0))
                         g('set format x "%.3s%c"')
 #                         g.set_range('xrange', (89490000, 89510000))
-    
-                        d1 = Gnuplot.Data (x_values , y_values, title=graph_title, with_="lines")
+
+                        d1 = Gnuplot.Data(x_values, y_values,
+                                          title=graph_title, with_="lines")
                         term_width = 200
                         term_height = 40
-                        term_set = "set terminal dumb feed size {tw}, {th} aspect 2, 1".format(tw=term_width, th=term_height)
-                        
+                        term_set = ('set terminal dumb feed size {tw},'
+                                    ' {th} aspect 2, 1').format(tw=term_width,
+                                                                th=term_height)
+
                         g(term_set)
                         g.plot(d1)
-                        
-                        
-                        print ('lower freqyency :{lf}, upper frequency:{hf}, Bucket size:{fs}').format(lf=low_freq, hf=high_freq, fs=freq_step)
+
+                        print('lower freqyency :{lf}, upper frequency:{hf},'
+                              ' Bucket size:{fs}').format(lf=low_freq,
+                                                          hf=high_freq,
+                                                          fs=freq_step)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Output graphics from Diatomite taps.')
     parser.add_argument('-f', '--file', help='specify input file',
-                        dest = 'input_file', required=True)
-    
+                        dest='input_file', required=True)
     args = parser.parse_args()
-
-
     tap_graph_main(args)
-    

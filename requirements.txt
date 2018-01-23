@@ -1,8 +1,4 @@
-Requires
-gnuradio >= 3.7.10
-
+gnuradio>=3.7.10
 gnuplot-py
-
-PyYAML > 3.12.tar.gz
-
-bottle
+PyYAML>3.12
+bottle>=0.12.13
