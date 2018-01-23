@@ -2,7 +2,7 @@
 ## Software to monitor radio frequency activity
 
 This is software to enable a user to monitor frequency activity.
-The use case is where a broadcaster wants to check if a given broadcast is being received on a certain location, so that actions can be taken if the broadcast is not being received, all of this using readily available components (General purpose computers, operating systems, inexpensive radio receivers).
+The use case is where a broadcaster wants to check if a given broadcast is being received on a certain location, so that actions can be taken if the broadcast is not being received, all of this using readily available components (General purpose computers, operating systems, inexpensive radio receivers) and then use common IT monitoring software packages (such as Nagios or others) to handle the management and display of information.
 
 This was done from a 'IT Infrastructure Admin' perspective and not from a Radio frequency engineer perspective.
 
@@ -32,7 +32,7 @@ API server relies on Bottles' internal web server, which is not meant for produc
 Message passing serialization is a bit awkward.
 
 Next steps:
-1. Create test scripts, with as close to full code coverage as possible.
+1. Create test scripts, with as close to full code coverage as possible.t
 2. Reporting of component status through the API
 3. Improve shutdown process
 4. Improve rf analyser tap naming

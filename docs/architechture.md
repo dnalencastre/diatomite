@@ -27,8 +27,8 @@ The 'API server' keeps a representation of the state of the system internally, r
 
 All of this is done by spawning several processes.
 
-Initially, a Site/Probe process, where initial configurations are done, and then spawns:
-1. one subprocess per 'Radio Source'
-1. one API server.
+1. An initial a Site/Probe process, where initial configurations are done, and which spawns the other processes.
+2. one subprocess per 'Radio Source'
+3. one API server.
 
 This is done in order to minimize contention due to the GIL, as each 'Radio Source' and 'Listener' will have several threads running in parallel.
