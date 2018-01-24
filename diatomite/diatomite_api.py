@@ -290,6 +290,8 @@ class ApiSvc(object):
 class DiaApi(bottle.Bottle):
     """Class to provide an API server for Diatomite"""
 
+    _base_url = '/diatomite'
+
     def __init__(self, name, data):
 
         super(DiaApi, self).__init__()
@@ -299,31 +301,31 @@ class DiaApi(bottle.Bottle):
 
     def _set_routes(self):
         """Set routes for the api"""
-        self.route('/sites', callback=self.get_sites, method='GET')
-        self.route('/sites/<site>', callback=self.get_site, method='GET')
-        self.route('/sites/<site>/probes', callback=self.get_probes,
+        self.route(self._base_url + '/sites', callback=self.get_sites, method='GET')
+        self.route(self._base_url + '/sites/<site>', callback=self.get_site, method='GET')
+        self.route(self._base_url + '/sites/<site>/probes', callback=self.get_probes,
                    method='GET')
-        self.route('/sites/<site>/probes/<probe>', callback=self.get_probe,
+        self.route(self._base_url + '/sites/<site>/probes/<probe>', callback=self.get_probe,
                    method='GET')
-        self.route('/sites/<site>/probes/<probe>/RadioSources',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/RadioSources',
                    callback=self.get_sources, method='GET')
-        self.route('/sites/<site>/probes/<probe>/radiosources',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources',
                    callback=self.get_sources, method='GET')
-        self.route('/sites/<site>/probes/<probe>/RadioSources/<source>',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/RadioSources/<source>',
                    callback=self.get_source, method='GET')
-        self.route('/sites/<site>/probes/<probe>/radiosources/<source>',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources/<source>',
                    callback=self.get_source, method='GET')
-        self.route('/sites/<site>/probes/<probe>/RadioSources/<source>/listeners',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/RadioSources/<source>/listeners',
                    callback=self.get_listeners, method='GET')
-        self.route('/sites/<site>/probes/<probe>/radiosources/<source>/listeners',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources/<source>/listeners',
                    callback=self.get_listeners, method='GET')
-        self.route('/sites/<site>/probes/<probe>/RadioSources/<source>/listeners/<listener>',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/RadioSources/<source>/listeners/<listener>',
                    callback=self.get_listener, method='GET')
-        self.route('/sites/<site>/probes/<probe>/radiosources/<source>/listeners/<listener>',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources/<source>/listeners/<listener>',
                    callback=self.get_listener, method='GET')
-        self.route('/sites/<site>/probes/<probe>/RadioSources/<source>/listeners/<listener>/current_signal_state',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/RadioSources/<source>/listeners/<listener>/current_signal_state',
                    callback=self.get_listener_current_signal_state, method='GET')
-        self.route('/sites/<site>/probes/<probe>/radiosources/<source>/listeners/<listener>/current_signal_state',
+        self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources/<source>/listeners/<listener>/current_signal_state',
                    callback=self.get_listener_current_signal_state, method='GET')
 
 
