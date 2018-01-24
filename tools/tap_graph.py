@@ -57,7 +57,6 @@ def tap_graph_main(args):
 
                         freq_step = float((float(hf) - float(lf)) / fft_values_len)
 
-
                         x = numpy.arange(start=low_freq,
                                          stop=high_freq,
                                          step=freq_step,

@@ -99,8 +99,6 @@ class RadioSourceSupportedDevs(object):
 class RadioSources(object):
     """Class for collections of radio sources."""
 
-
-
     # Queues where each radio source will receive messages
     _radio_source_input_queue_dict = {}
 
@@ -120,7 +118,6 @@ class RadioSources(object):
         self._source_output_pipes = {}
         self._audio_sink = None
 
-
         if (conf is not None and out_queue is not None and
                 log_dir_path is not None and tap_dir_path is not None):
             self.configure(conf, out_queue, log_dir_path, tap_dir_path)
@@ -131,7 +128,6 @@ class RadioSources(object):
                                                lp=log_dir_path,
                                                tp=tap_dir_path)
             raise RadioSourceError(msg)
-
 
     def configure(self, conf, out_queue, log_dir_path, tap_dir_path):
         """Configure the radio sources collection
@@ -356,8 +352,6 @@ class RadioSource(object):
         if (conf is not None and in_queue is not None
                 and out_queue is not None and
                 log_dir_path is not None and tap_dir_path is not None):
-#             self.configure(conf, in_queue, out_queue, log_dir_path,
-#                            tap_dir_path)
             pass
         else:
             msg = ('Incomplete initialization.conf:{c}, output queue:{q},'
@@ -475,7 +469,8 @@ class RadioSource(object):
         logging.debug(msg)
 
         try:
-            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(), self.get_tap_dir_path())
+            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(),
+                                                      self.get_tap_dir_path())
         except Exception, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             logging.error(msg)
@@ -1195,7 +1190,6 @@ class RTL2838RadioSource(RadioSource):
         log_dir_path -- path where logs will be written
         tap_dir_path -- path where taps wil be created"""
 
-
         msg = 'configuring radio source {s} 1'.format(s=self.get_id())
         logging.debug(msg)
 
@@ -1203,27 +1197,11 @@ class RTL2838RadioSource(RadioSource):
                                                   out_queue, log_dir_path,
                                                   tap_dir_path)
 
-
         msg = 'configuring radio source {s}'.format(s=self.get_id())
         logging.debug(msg)
 
         # radio must be initialized before setting the center
-
-        # ATT: try this as first command
         self._source_args = conf['conf']
-        # self._source_args = "numchan=" + str(1) + " " + ''
-
-
-        # TODO: re-instante this after testing on self._run_subprocess
-#         self._radio_init()
-#         msg = 'configuring radio source {s} 1'.format(s=self.get_id())
-#         logging.debug(msg)
-
-
-#         # ATT: maybe need to move this to the start phase, commanded from RadioSources
-#         self.start()
-#         msg = 'configuring radio source {s} 2'.format(s=self.get_id())
-#         logging.debug(msg)
 
         self.set_frequency(conf['frequency'])
         msg = 'configuring radio source {s} 3'.format(s=self.get_id())
@@ -1231,10 +1209,11 @@ class RTL2838RadioSource(RadioSource):
 
         # configure listeners
 
-        msg = 'configuring listeners {l}'.format(l=conf['listeners'])
+        msg = 'configuring listeners {ln}'.format(ln=conf['listeners'])
         logging.debug(msg)
 
-        self._listeners = freqlistener.FreqListeners(conf['listeners'], self, tap_dir_path)
+        self._listeners = freqlistener.FreqListeners(conf['listeners'],
+                                                     self, tap_dir_path)
 
     def _radio_init(self):
         """Initialize the radio hw."""

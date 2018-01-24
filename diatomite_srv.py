@@ -27,39 +27,6 @@ import argparse
 import diatomite_site_probe as dia_sp
 
 
-# TODO: remove tracefunc before release
-def tracefunc(frame, event, arg, indent=[0]):
-    """for debugging"""
-
-    import inspect
-    import os
-    try:
-        class_name = frame.f_locals['self'].__class__.__name__
-    except KeyError:
-        class_name = None
-
-    try:
-        module_name = inspect.currentframe().f_back.f_globals["__file__"]
-    except KeyError:
-        module_name = None
-
-    try:
-        module_n = os.path.basename(module_name)
-    except:
-        module_n = module_name
-
-    call_data = '{c}.{m} :{mn}'.format(c=class_name,
-                                       m=frame.f_code.co_name,
-                                       mn=module_n)
-
-    if event == "call":
-        indent[0] += 2
-        print "-" * indent[0] + "> call function {d}".format(d=call_data)
-    elif event == "return":
-        print "<" + "-" * indent[0], "exit function {d}".format(d=call_data)
-        indent[0] -= 2
-    return tracefunc
-
 def arg_parser():
     """Parse command line arguments.
     Returns an argument dictionary"""
@@ -82,6 +49,7 @@ def arg_parser():
     args = parser.parse_args()
 
     return args
+
 
 def main():
     """Main processing block for the server"""
@@ -106,10 +74,8 @@ def main():
 
     this_site.start()
 
-if __name__ == "__main__":
 
-#     import sys
-#     sys.setprofile(tracefunc)
+if __name__ == "__main__":
 
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 

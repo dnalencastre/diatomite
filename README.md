@@ -28,8 +28,9 @@ CAVEAT EMPTOR.
 Use at own risk.
 
 Major known issues.
-API server relies on Bottles' internal web server, which is not meant for production, and may not allow more than one concurrent connection.
-Message passing serialization is a bit awkward.
+- API server relies on Bottles' internal web server, which is not meant for production, and may not allow more than one concurrent connection.
+- Message passing serialization is a bit awkward.
+- Listeners may be tuned outside of a radio receiver's range.
 
 Next steps:
 1. Create test scripts, with as close to full code coverage as possible.t

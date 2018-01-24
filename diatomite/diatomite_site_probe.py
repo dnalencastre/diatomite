@@ -57,7 +57,8 @@ class Probes(object):
         # initialize each probe
         # although there should only be one probe
         for probe_id in probes_conf:
-            this_probe = DiatomiteProbe(probes_conf[probe_id], site_conf, site_id)
+            this_probe = DiatomiteProbe(probes_conf[probe_id], site_conf,
+                                        site_id)
             self._probe_dict[probe_id] = this_probe
 
     def start(self):
@@ -77,10 +78,6 @@ class DiatomiteSite(object):
     A site may have multiple probes, but an object of this type does not need
     to be aware of any other diatomite probes existing other than the one
     being executed by the running process."""
-
-
-
-
 
     def __init__(self, conf=None):
 
@@ -342,23 +339,23 @@ class DiatomiteProbe(object):
 
         if level.upper() == "DEBUG":
             self._log_level = logging.DEBUG
-            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            msg = 'logging level will be set to {ll}.'.format(ll=level.upper())
             logging.info(msg)
         elif level.upper() == "INFO":
             self._log_level = logging.INFO
-            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            msg = 'logging level will be set to {ll}.'.format(ll=level.upper())
             logging.info(msg)
         elif level.upper() == "WARNING":
             self._log_level = logging.WARNING
-            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            msg = 'logging level will be set to {ll}.'.format(ll=level.upper())
             logging.info(msg)
         elif level.upper() == "ERROR":
             self._log_level = logging.ERROR
-            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            msg = 'logging level will be set to {ll}.'.format(ll=level.upper())
             logging.info(msg)
         elif level.upper() == "CRITICAL":
             self._log_level = logging.CRITICAL
-            msg = 'logging level will be set to {l}.'.format(l=level.upper())
+            msg = 'logging level will be set to {ll}.'.format(ll=level.upper())
             logging.info(msg)
         else:
             msg = ('FATAL: configuration error, malformed log_level'

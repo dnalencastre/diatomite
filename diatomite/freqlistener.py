@@ -40,10 +40,12 @@ class FreqListenerInvalidModulationError(Exception):
     """Raised when  a FreqListener is passed an invalid modulation."""
     pass
 
+
 class FreqListenerListIdNotUniqueError(Exception):
     """Raised when a FreqListener with an already occurring id is added to a
     FreqlistenerList."""
     pass
+
 
 class FreqListenerError(Exception):
     """Raised when a FreqListener encounters an error."""
@@ -75,7 +77,6 @@ class FreqListeners(object):
                    ' tap_dir_pat:{tp}').format(c=conf, rs=radio_source,
                                                tp=tap_dir_path)
             raise FreqListenerError(msg)
-
 
     def configure(self, conf, radio_source, tap_dir_path):
         """Configure the frequency listener collection
@@ -237,6 +238,7 @@ class FreqListeners(object):
                                 self.get_tap_dir_path())
         self._freq_listener_dict[f_listener_id] = listener
 
+
 class FreqListener(object):
     """Define the subsystem to listen to a given radio frequency.
     This includes the GNU radio blocks to tune and capture information
@@ -356,7 +358,7 @@ class FreqListener(object):
 
         self.set_tap_dir_path(tap_dir_path)
 
-        msg = ('configuring listener {l}.').format(l=self.get_id())
+        msg = ('configuring listener {ll}.').format(ll=self.get_id())
         logging.debug(msg)
 
         self.set_frequency(conf['frequency'])
@@ -860,7 +862,6 @@ class FreqListener(object):
             sig_status = dia_aux.DiaSigStatus.ABSENT
             sig_level = signal_avg
 
-
         new_sig_info = dia_aux.DiaSigInfo(sig_status, sig_level,
                                           current_time)
 
@@ -920,7 +921,8 @@ class FreqListener(object):
         logging.debug(msg)
 
         try:
-            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(), self.get_tap_dir_path())
+            self._freq_analyzer_tap = dia_aux.DataTap(self.get_id(),
+                                                      self.get_tap_dir_path())
         except Exception, exc:
             msg = 'Failed to setup tap for FFT with:{m}'.format(m=str(exc))
             logging.error(msg)
@@ -1068,8 +1070,8 @@ class FreqListener(object):
 
         current_time = datetime.utcnow().isoformat()
         level = 0
-        new_sig_state = dia_aux.DiaSigInfo(dia_aux.DiaSigStatus.SHUTDOWN, level,
-                                           current_time)
+        new_sig_state = dia_aux.DiaSigInfo(dia_aux.DiaSigStatus.SHUTDOWN,
+                                           level, current_time)
         self._sig_state.set_new(new_sig_state)
         self._notify_sig_state_change()
 

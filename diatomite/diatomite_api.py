@@ -164,14 +164,13 @@ class ApiSvc(object):
             elif msg_type == dia_aux.DiaMsgType.LNR_SYS_STATE_CHANGE:
                 self._process_lnr_state_update(in_data)
 
-
             # TODO: manage stop messages
 #             input_cmd = ''
 #             if input_cmd == 'STOP':
 #                 stop = True
 
             msg = 'in_data {d}, type {t}'.format(d=in_data, t=type(in_data))
-            logging.info(msg)
+            logging.debug(msg)
 
             stop_event.wait(0.1)
 
@@ -247,7 +246,7 @@ class ApiSvc(object):
 
         # check if data is already a DiaSigState
         if not isinstance(data, dia_aux.DiaSigState):
-            #transform the json to a a DiaSigState
+            # transform the json to a a DiaSigState
             sig_state = dia_aux.DiaSigState()
             sig_state.set_json(data)
         else:
