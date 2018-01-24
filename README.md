@@ -16,6 +16,7 @@ Currently only RealTek 2838 SDR dongles are supported, but this should be easy t
 Also provided is a tool (tools/tap_graph.py) to monitor radio frequency analyser outputs of Diatomite on a character console. This was deliberately made as a text console utility to enable the use on remote equipment via ssh.
 
 The software should be considered early ALPHA, and is working end-to-end, reading configurations, monitoring frequencies and reporting on the RESTfull API server.
+The software is being developed on a Fedora release 25 Linux on a x86_64 architecture and has not been tested in any other environment.
 
 Signal detection is done the following way:
 1. a frequency is monitored
@@ -31,7 +32,7 @@ Major known issues.
 - API server relies on Bottles' internal web server, which is not meant for production, and may not allow more than one concurrent connection.
 - Message passing serialization is a bit awkward.
 - Listeners may be tuned outside of a radio receiver's range.
-- Api responses for invalid requests is a broken connection.
+- Api response for invalid requests is a broken connection.
 
 Next steps:
 1. Create test scripts, with as close to full code coverage as possible.t
