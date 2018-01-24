@@ -8,7 +8,7 @@ See the provided dia_conf.yaml and also docs/config_files.txt.
 A listener is tuned by configuring the "frequency" field, a bandwidth ("bandwidth" field) must also be configured.
 The radio source must also be tuned, also on the "frequency" field.
 The radio source's frequency must be chosen in order to include the listener (frequency and bandwidth) to be included within the source's tuned range.
-Currently, for the RTL2838, the tuned range will cover 2400000Hz.
+Currently, for the RTL2832U, the tuned range will cover 2400000Hz.
 The radio source's RF analyser tap can help in finding if the desired frequency is covered.
 To do this, do an initial configuration, ensuring that:
 1. the probe "tap_dir_path" is configured with a valid and writeable path.

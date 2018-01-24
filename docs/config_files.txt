@@ -59,7 +59,7 @@ sites:
           	  #   conf: configuration string for the hardware (future use).
               #   audio_output: if audio output of this source's listeners may be activated
               #     "True" to activate, "False" to deactivate . Default is deactivated
-              type: "RTL2838_R820T2"
+              type: "RTL2832U"
               audio_output: "True"
               frequency: "90e6"
               # each radio source must have at least one listener
@@ -93,7 +93,7 @@ sites:
                     bandwidth: "200000"
                     level_threshold: "-65"
           "<radio_source_id>":
-              type: "RTL2838_R820T2"
+              type: "RTL2832U"
               frequency: "102e6"
               listeners:
                 "<listener_id>":

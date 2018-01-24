@@ -11,7 +11,7 @@ Diatomite makes heavy use of GNU radio!!! https://www.gnuradio.org/
 The software monitors one or more frequencies, using one or more SDR radio receivers, and reports signal statuses through a RESTfull api.
 The signals status is determined against a pre-determind level for each frequency set in the configuration file. There is no auto sensing.
 
-Currently only RealTek 2838 SDR dongles are supported, but this should be easy to extend.
+Currently only RealTek 2832U SDR dongles are supported, but this should be easy to extend.
 
 Also provided is a tool (tools/tap_graph.py) to monitor radio frequency analyser outputs of Diatomite on a character console. This was deliberately made as a text console utility to enable the use on remote equipment via ssh.
 

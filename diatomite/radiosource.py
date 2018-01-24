@@ -77,7 +77,7 @@ class RadioSourceSate(object):
 class RadioSourceSupportedDevs(object):
     """Define the supported rf devices and their classes"""
 
-    _supported_dev_dict = {'RTL2838': {'class': 'RTL2838RadioSource'}}
+    _supported_dev_dict = {'RTL2832U': {'class': 'RTL2832URadioSource'}}
 
     def get_supported_devs(self):
         """returns a list of supported devices."""
@@ -1117,8 +1117,8 @@ class RadioSource(object):
         self.send_data(new_msg)
 
 
-class RTL2838RadioSource(RadioSource):
-    """Defines a radio source hardware with  RTL2838 receiver
+class RTL2832URadioSource(RadioSource):
+    """Defines a radio source hardware with  RTL2832U receiver
      and a R820T2 tuner."""
 
     def __init__(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
@@ -1136,7 +1136,7 @@ class RTL2838RadioSource(RadioSource):
         self._center_freq = self._cap_freq_max - ((self._cap_freq_max
                                                    - self._cap_freq_min) / 2)
 
-        super(RTL2838RadioSource, self).__init__(conf, in_queue,
+        super(RTL2832URadioSource, self).__init__(conf, in_queue,
                                                  out_queue, log_dir_path,
                                                  tap_dir_path)
 
@@ -1151,7 +1151,7 @@ class RTL2838RadioSource(RadioSource):
         self._antenna = ''
         self._bandwith = 0
 
-        self._type = 'RTL2838'
+        self._type = 'RTL2832U'
         self._cap_bw = 2400000
 
         if (conf is not None and in_queue is not None
@@ -1193,9 +1193,9 @@ class RTL2838RadioSource(RadioSource):
         msg = 'configuring radio source {s} 1'.format(s=self.get_id())
         logging.debug(msg)
 
-        super(RTL2838RadioSource, self).configure(conf, in_queue,
-                                                  out_queue, log_dir_path,
-                                                  tap_dir_path)
+        super(RTL2832URadioSource, self).configure(conf, in_queue,
+                                                   out_queue, log_dir_path,
+                                                   tap_dir_path)
 
         msg = 'configuring radio source {s}'.format(s=self.get_id())
         logging.debug(msg)
@@ -1217,7 +1217,7 @@ class RTL2838RadioSource(RadioSource):
 
     def _radio_init(self):
         """Initialize the radio hw."""
-        super(RTL2838RadioSource, self)._radio_init()
+        super(RTL2832URadioSource, self)._radio_init()
 
         try:
             self._radio_source = osmosdr.source(self._source_args)
