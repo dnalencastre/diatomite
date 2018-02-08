@@ -613,7 +613,10 @@ class DiaConfParser(object):
                     this_probe['tap_dir_path'] = ''
 
                 if 'logging' not in this_probe:
-                    new_log_conf = {}
+                    new_log_conf = {
+                        'log_level': "INFO",
+                        'dir_path': "log",
+                        }
                 else:
                     new_log_conf = self._process_config_log(this_probe['logging'])
 
