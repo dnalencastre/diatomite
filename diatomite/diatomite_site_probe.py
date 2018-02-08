@@ -551,6 +551,11 @@ class DiaConfParser(object):
                    ' section')
             raise DiaConfParserError(msg)
 
+        # check if any sites are defined
+        if not sites:
+            msg = 'FATAL: configuration error, no sites configured'
+            raise DiaConfParserError(msg)
+
         # process this site
         for s_key in sites:
 
