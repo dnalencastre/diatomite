@@ -593,6 +593,11 @@ class DiaConfParser(object):
                        'section')
                 raise DiaConfParserError(msg)
 
+            # check if any probes are defined
+            if not probes:
+                msg = 'FATAL: configuration error, no probes configured'
+                raise DiaConfParserError(msg)
+
             for p_key in probes:
 
                 this_probe = probes[p_key]
