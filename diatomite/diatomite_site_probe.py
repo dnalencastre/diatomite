@@ -30,7 +30,7 @@ import diatomite_aux as dia_aux
 
 
 class DiaConfParserError(Exception):
-    """Raised when unable to read a meaningfull configuration"""
+    """Raised when unable to read a meaningful configuration"""
     pass
 
 
@@ -42,7 +42,7 @@ class Probes(object):
     def __init__(self, probes_conf=None, site_conf=None, site_id=None):
         """Initialize the Probes collection
         probes_conf -- a dictionary with a valid configuration
-        site_conf -- a dictionary with the site configuratio"""
+        site_conf -- a dictionary with the site configuration"""
         if (probes_conf is not None and site_conf is not None
                 and site_id is not None):
             # read configuration
@@ -51,7 +51,7 @@ class Probes(object):
     def configure(self, probes_conf, site_conf, site_id):
         """Configure the Probes collection
         probes_conf -- a dictionary with a valid configuration
-        site_conf -- a dictionary with the site configuratio
+        site_conf -- a dictionary with the site configuration
         site_id -- the site id"""
 
         # initialize each probe
@@ -653,15 +653,27 @@ class DiaConfParser(object):
                                ' radio source Type definition')
                         raise DiaConfParserError(msg)
 
+                    # test if frequency is defined
                     if 'frequency' not in this_r_source:
                         msg = ('FATAL: configuration error, missing'
                                ' radio source Frequency definition')
                         raise DiaConfParserError(msg)
-                    if isinstance(this_r_source['frequency'], (int, long)):
+                    try:
+                        # convert from string to a float
+                        rs_freq = float(this_r_source['frequency'])
+                    except ValueError:
                         msg = ('FATAL: configuration error, malformed'
                                ' radio source Frequency definition')
                         raise DiaConfParserError(msg)
-
+                    else:
+                        if not rs_freq.is_integer():
+                            # check if number is integer
+                            msg = ('FATAL: configuration error, malformed'
+                                   ' radio source Frequency definition')
+                            raise DiaConfParserError(msg)
+                        else:
+                            this_r_source['frequency'] = rs_freq
+                            
                     # define optional fields
                     if 'conf' not in this_r_source:
                         this_r_source['conf'] = ''
@@ -717,34 +729,71 @@ class DiaConfParser(object):
                             msg = ('FATAL: configuration error, missing'
                                    ' listener Frequency definition')
                             raise DiaConfParserError(msg)
-                        if isinstance(this_listener['frequency'], (int, long)):
+                        try:
+                            # convert from string to a float
+                            l_freq = float(this_listener['frequency'])
+                        except ValueError:
                             msg = ('FATAL: configuration error, malformed'
                                    ' listener Frequency definition')
                             raise DiaConfParserError(msg)
+                        else:
+                            if not l_freq.is_integer():
+                                # check if number is integer
+                                msg = ('FATAL: configuration error, malformed'
+                                   ' listener Frequency definition')
+                                raise DiaConfParserError(msg)
+                            else:
+                                this_listener['frequency'] = l_freq
 
                         if 'bandwidth' not in this_listener:
                             msg = ('FATAL: configuration error, missing'
                                    ' listener bandwidth definition')
                             raise DiaConfParserError(msg)
-                        if isinstance(this_listener['bandwidth'], (int, long)):
+                        try:
+                            # convert from string to a float
+                            l_bw = float(this_listener['bandwidth'])
+                        except ValueError:
                             msg = ('FATAL: configuration error, malformed'
                                    ' listener bandwidth definition')
                             raise DiaConfParserError(msg)
+                        else:
+                            if not l_bw.is_integer():
+                                # check if number is integer
+                                msg = ('FATAL: configuration error, malformed'
+                                       ' listener bandwidth definition')
+
+                                raise DiaConfParserError(msg)
+                            else:
+                                this_listener['bandwidth'] = l_bw
 
                         if 'level_threshold' not in this_listener:
                             msg = ('FATAL: configuration error, missing'
                                    ' listener level_threshold definition')
                             raise DiaConfParserError(msg)
-                        if isinstance(this_listener['level_threshold'], (int, long)):
+                        try:
+                            # convert from string to a float
+                            l_threshold = float(this_listener['level_threshold'])
+                        except ValueError:
                             msg = ('FATAL: configuration error, malformed'
                                    'listener level_threshold definition')
                             raise DiaConfParserError(msg)
+                        else:
+                            if not l_threshold.is_integer():
+                                # check if number is integer
+                                msg = ('FATAL: configuration error, malformed'
+                                       'listener level_threshold definition')
+                                raise DiaConfParserError(msg)
+                            else:
+                                this_listener['level_threshold'] = l_threshold                   
 
                         # define optional fields
                         if 'modulation' not in this_listener:
                             this_listener['modulation'] = ''
-                        if this_listener['modulation'] not in ('FM'):
+                        if this_listener['modulation'] not in ('FM', ''):
                             this_listener['modulation'] = ''
+                            msg = ('FATAL: configuration error, malformed'
+                                   ' listener modulation option')
+                            raise DiaConfParserError(msg)
 
                         if 'audio_output' not in this_listener:
                             this_listener['audio_output'] = False

@@ -200,7 +200,36 @@ class TestDiaConfParser:
                     }
                 }
             }
-        
+
+        self.radio_source_bad_frequency_val  = {
+            'sites': {
+                'test_site_1': {
+                    'location': 'location',
+                    'probes': {
+                        'test_probe_1': {
+                            'RadioSources': {
+                                'rs1': {
+                                    'frequency': 'BAD_VAL', 
+                                    'type': 'RTL2832U',
+                                    'audio_output': 'True',
+                                    'listeners': {
+                                        'ln11': {
+                                            'freq_analyzer_tap': 'True',
+                                            'bandwidth': '200000',
+                                            'frequency': '89.5e6',
+                                            'modulation': 'FM',
+                                            'audio_output': 'True',
+                                            'level_threshold': '-70'
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+
         self.radio_source_bad_freq_analyzer_tap_val = {
             'sites': {
                 'test_site_1': {
@@ -516,6 +545,7 @@ class TestDiaConfParser:
     def test_current_conf_sample(self):
         """Test the current configuration sample against the current code. If all other tests pass, this must also pass, otherwise sample is wrong !"""
         dia_conf = dia_sp.DiaConfParser()
+        print 'path:', os.getcwd()
         dia_conf.read_conf_file('../../dia_conf.yaml')
     
     @nose.tools.raises(dia_sp.DiaConfParserError)
@@ -630,7 +660,9 @@ class TestDiaConfParser:
         dia_conf = dia_sp.DiaConfParser()
         
         for conf in [self.radio_source_bad_audio_output_val,
-                     self.radio_source_bad_freq_analyzer_tap_val]:
+                     self.radio_source_bad_freq_analyzer_tap_val,
+                     self.radio_source_bad_frequency_val,
+                     ]:
             
             try:
                 dia_conf._good_conf = dia_conf._process_config(conf)
@@ -707,5 +739,5 @@ class TestDiaConfParser:
             except dia_sp.DiaConfParserError as e:
                 assert True
             else:
-                assert False
+                assert False, conf
 
