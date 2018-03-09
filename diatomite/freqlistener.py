@@ -554,14 +554,16 @@ class FreqListener(object):
         modulation -- the modulation"""
 
         modulation = modulation.lower()
+        
+        sup_modulations = self.get_supported_modulations()
 
-        if modulation in self._supported_modulations:
+        if modulation in sup_modulations:
             self._modulation = modulation
             msg = 'Modulation set to {i}'.format(i=modulation)
             logging.debug(msg)
         else:
             msg = ('modulation must be one of {m}').format(
-                m=' '.join(self._supported_modulations))
+                m=' '.join(sup_modulations))
             logging.error(msg)
             raise FreqListenerInvalidModulationError(msg)
 
