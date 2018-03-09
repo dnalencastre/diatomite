@@ -29,7 +29,9 @@ import datetime
 from string import ascii_letters, digits
 from enum import IntEnum
 import json
-
+from gnuradio import analog
+from gnuradio import blocks
+from gnuradio import filter as grfilter
 
 class BadIdError(Exception):
     """Raised when an object is passed an id with unacceptable
@@ -810,3 +812,84 @@ class Location(object):
         coord_type -- geographical coordinates type"""
 
         self._coord_type = coord_type
+        
+        
+class BaseDemodulator(object):
+    '''Base class for demodulators'''
+
+    # subclass registry    
+    subclasses = {}
+
+    @classmethod
+    def register_subclass(cls, demod_type):
+        
+        demod_type = demod_type.lower()
+        def decorator(subclass):
+            cls.subclasses[demod_type] = subclass
+            return subclass
+
+        return decorator
+
+    @classmethod
+    def create(cls, demod_type, top_block, quad_rate, audio_decimation, in_blk, 
+               out_blk, out_blk_idx):
+        '''Create a new class of the given type'''
+        
+        print '----- demod type', demod_type
+
+        if demod_type not in cls.subclasses:
+            raise ValueError('Invalid demodulator type {dt}'.
+                             format(dt=demod_type))
+
+        return cls.subclasses[demod_type](top_block, quad_rate, audio_decimation, 
+                                          in_blk, out_blk, out_blk_idx)
+
+
+@BaseDemodulator.register_subclass('fm')
+class FmDemodulator(BaseDemodulator):
+    '''FM demodulation class'''
+     
+    def __init__(self, top_block, quad_rate, audio_decimation, in_blk, out_blk, 
+                 out_blk_idx):
+
+        self._quad_rate = quad_rate
+        self._audio_decimation = audio_decimation
+        self._in_blk = in_blk
+        self._out_blk = out_blk
+        self._out_blk_idx = out_blk_idx
+        self._gr_top_block = top_block
+         
+    def start(self):
+        '''Connect blocks and start the demodulator'''
+         
+        analog_wfm_rcv = analog.wfm_rcv(
+            quad_rate = self._quad_rate,
+            audio_decimation = self._audio_decimation,
+        )
+ 
+        self._gr_top_block.connect((self._in_blk, 0),
+                                   (analog_wfm_rcv, 0))
+ 
+        rational_resampler_b = grfilter.rational_resampler_fff(
+            interpolation=48,
+            decimation=50,
+            taps=None,
+            fractional_bw=None,
+        )
+ 
+        self._gr_top_block.connect((analog_wfm_rcv, 0),
+                                   (rational_resampler_b, 0))
+ 
+        blocks_multiply_const = blocks.multiply_const_vff((1, ))
+ 
+        self._gr_top_block.connect((rational_resampler_b, 0),
+                                   (blocks_multiply_const, 0))
+ 
+        # connect to audio sink
+         
+        self._gr_top_block.connect((blocks_multiply_const, 0),
+                                   (self._out_blk, self._out_blk_idx))
+ 
+        msg = 'started demodulation'
+        logging.debug(msg)
+         

@@ -302,6 +302,8 @@ class FreqListener(object):
         self._radio_source = None
 
         self._audio_sink = None
+        
+        self._demodulator = None
 
         self._freq_translation_filter_input = None
         self._freq_translation_filter_output = None
@@ -554,7 +556,7 @@ class FreqListener(object):
         modulation -- the modulation"""
 
         modulation = modulation.lower()
-        
+
         sup_modulations = self.get_supported_modulations()
 
         if modulation in sup_modulations:
@@ -1115,47 +1117,33 @@ class FreqListener(object):
         msg = 'fm demod will start for listener {id}'.format(id=self.get_id())
         logging.debug(msg)
 
-        self._fm_demod()
+        self._demodulate()
 
         msg = 'fm demod started for listener {id}'.format(id=self.get_id())
         logging.debug(msg)
 
-    def _fm_demod(self):
-        """Do an FM demodulation for this listener"""
+    def _demodulate(self):
+        """Apply the selected demodulation"""
 
         samp_rate = 500000
+        audio_decimation = 10
 
-        analog_wfm_rcv = analog.wfm_rcv(
-            quad_rate=samp_rate,
-            audio_decimation=10,
-        )
+        # define input and output blocks
+        demod_in_blk = self._freq_translation_filter_output
+        demod_out_blk = self._radio_source.get_audio_sink()
 
-        self._gr_top_block.connect((self._freq_translation_filter_output, 0),
-                                   (analog_wfm_rcv, 0))
-
-        rational_resampler_b = grfilter.rational_resampler_fff(
-            interpolation=48,
-            decimation=50,
-            taps=None,
-            fractional_bw=None,
-        )
-
-        self._gr_top_block.connect((analog_wfm_rcv, 0),
-                                   (rational_resampler_b, 0))
-
-        blocks_multiply_const = blocks.multiply_const_vff((1, ))
-
-        self._gr_top_block.connect((rational_resampler_b, 0),
-                                   (blocks_multiply_const, 0))
-
-        # connect to audio sink
-        audio_sink_connection = self._radio_source.add_audio_sink_connection()
-        self._gr_top_block.connect((blocks_multiply_const, 0),
-                                   (self._radio_source.get_audio_sink(),
-                                    audio_sink_connection))
-
-        msg = 'started demodulation'
-        logging.debug(msg)
+        # add new audio sink connection
+        demod_out_blk_idx = self._radio_source.add_audio_sink_connection()
+        
+        self._demodulator = dia_aux.BaseDemodulator.create(self.get_modulation(),
+                                                           self._gr_top_block, 
+                                                           samp_rate,
+                                                           audio_decimation,
+                                                           demod_in_blk,
+                                                           demod_out_blk,
+                                                           demod_out_blk_idx)
+        
+        self._demodulator.start()
 
     def _notify_sys_state_change(self):
         """Notify RadioSource of the listener's system state change"""
