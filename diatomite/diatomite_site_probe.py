@@ -789,7 +789,9 @@ class DiaConfParser(object):
                         # define optional fields
                         if 'modulation' not in this_listener:
                             this_listener['modulation'] = ''
-                        if this_listener['modulation'] not in ('FM', ''):
+                        if (this_listener['modulation'].lower() not in 
+                            dia_aux.BaseDemodulator.subclasses.keys()):
+                    
                             this_listener['modulation'] = ''
                             msg = ('FATAL: configuration error, malformed'
                                    ' listener modulation option')

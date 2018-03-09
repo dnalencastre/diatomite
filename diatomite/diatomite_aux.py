@@ -834,8 +834,6 @@ class BaseDemodulator(object):
     def create(cls, demod_type, top_block, quad_rate, audio_decimation, in_blk, 
                out_blk, out_blk_idx):
         '''Create a new class of the given type'''
-        
-        print '----- demod type', demod_type
 
         if demod_type not in cls.subclasses:
             raise ValueError('Invalid demodulator type {dt}'.
@@ -844,6 +842,19 @@ class BaseDemodulator(object):
         return cls.subclasses[demod_type](top_block, quad_rate, audio_decimation, 
                                           in_blk, out_blk, out_blk_idx)
 
+@BaseDemodulator.register_subclass('')
+class NullDemodulator(BaseDemodulator):
+    '''Null demodulation class, will not do anything.
+    Of use when no output is needed and demodulation is not
+    specified on config file'''
+     
+    def __init__(self, top_block, quad_rate, audio_decimation, in_blk, out_blk, 
+                 out_blk_idx):
+        pass
+         
+    def start(self):
+        '''No op'''
+        pass
 
 @BaseDemodulator.register_subclass('fm')
 class FmDemodulator(BaseDemodulator):
