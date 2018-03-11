@@ -822,7 +822,12 @@ class BaseDemodulator(object):
 
     def __init__(self, top_block, quad_rate, audio_decimation, in_blk, out_blk,
                  out_blk_idx):
-        """Store initialization data."""
+        """Store initialization data.
+        top_block -- the gnu radio top block,
+        quad_rate -- quadrature rate,
+        audio_decimation -- the audio decimation for the demodulator,
+        in_blk -- the input block stream for the demodulator,
+        out_blk -- the output block stream for the demodulator"""
         self._quad_rate = quad_rate
         self._audio_decimation = audio_decimation
         self._in_blk = in_blk
@@ -849,7 +854,13 @@ class BaseDemodulator(object):
     @classmethod
     def create(cls, demod_type, top_block, quad_rate, audio_decimation, in_blk,
                out_blk, out_blk_idx):
-        """Create a new class of the given type."""
+        """Create a new class of the given type.\
+        demod_type -- demodulator type as a string,
+        top_block -- the gnu radio top block,
+        quad_rate -- quadrature rate,
+        audio_decimation -- the audio decimation for the demodulator,
+        in_blk -- the input block stream for the demodulator,
+        out_blk -- the output block stream for the demodulator"""
 
         if demod_type not in cls._subclasses:
             raise ValueError('Invalid demodulator type {dt}'.

@@ -328,7 +328,7 @@ class RadioSource(object):
 
     @classmethod
     def register_subclass(cls, receiver_type):
-        """Register a demodulator class, stores receiver type in lower case."""
+        """Register a receiver class, stores receiver type in lower case."""
         receiver_type = receiver_type.lower()
         def decorator(subclass):
             cls._subclasses[receiver_type] = subclass
