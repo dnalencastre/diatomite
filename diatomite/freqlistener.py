@@ -302,7 +302,7 @@ class FreqListener(object):
         self._radio_source = None
 
         self._audio_sink = None
-        
+
         self._demodulator = None
 
         self._freq_translation_filter_input = None
@@ -1134,15 +1134,15 @@ class FreqListener(object):
 
         # add new audio sink connection
         demod_out_blk_idx = self._radio_source.add_audio_sink_connection()
-        
+
         self._demodulator = dia_aux.BaseDemodulator.create(self.get_modulation(),
-                                                           self._gr_top_block, 
+                                                           self._gr_top_block,
                                                            samp_rate,
                                                            audio_decimation,
                                                            demod_in_blk,
                                                            demod_out_blk,
                                                            demod_out_blk_idx)
-        
+
         self._demodulator.start()
 
     def _notify_sys_state_change(self):

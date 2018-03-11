@@ -673,7 +673,7 @@ class DiaConfParser(object):
                             raise DiaConfParserError(msg)
                         else:
                             this_r_source['frequency'] = rs_freq
-                            
+
                     # define optional fields
                     if 'conf' not in this_r_source:
                         this_r_source['conf'] = ''
@@ -740,7 +740,7 @@ class DiaConfParser(object):
                             if not l_freq.is_integer():
                                 # check if number is integer
                                 msg = ('FATAL: configuration error, malformed'
-                                   ' listener Frequency definition')
+                                       ' listener Frequency definition')
                                 raise DiaConfParserError(msg)
                             else:
                                 this_listener['frequency'] = l_freq
@@ -784,14 +784,14 @@ class DiaConfParser(object):
                                        'listener level_threshold definition')
                                 raise DiaConfParserError(msg)
                             else:
-                                this_listener['level_threshold'] = l_threshold                   
+                                this_listener['level_threshold'] = l_threshold
 
                         # define optional fields
                         if 'modulation' not in this_listener:
                             this_listener['modulation'] = ''
-                        if (this_listener['modulation'].lower() not in 
-                            dia_aux.BaseDemodulator.subclasses.keys()):
-                    
+                        if (this_listener['modulation'].lower() not in
+                                dia_aux.BaseDemodulator.subclasses.keys()):
+
                             this_listener['modulation'] = ''
                             msg = ('FATAL: configuration error, malformed'
                                    ' listener modulation option')

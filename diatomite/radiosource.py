@@ -1137,8 +1137,8 @@ class RTL2832URadioSource(RadioSource):
                                                    - self._cap_freq_min) / 2)
 
         super(RTL2832URadioSource, self).__init__(conf, in_queue,
-                                                 out_queue, log_dir_path,
-                                                 tap_dir_path)
+                                                  out_queue, log_dir_path,
+                                                  tap_dir_path)
 
         self._freq_corr = 0
         self._dc_offset_mode = 0
