@@ -790,7 +790,7 @@ class DiaConfParser(object):
                         if 'modulation' not in this_listener:
                             this_listener['modulation'] = ''
                         if (this_listener['modulation'].lower() not in
-                                dia_aux.BaseDemodulator.subclasses.keys()):
+                                dia_aux.BaseDemodulator.get_supported_modulations()):
 
                             this_listener['modulation'] = ''
                             msg = ('FATAL: configuration error, malformed'

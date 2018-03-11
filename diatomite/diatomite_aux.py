@@ -818,7 +818,7 @@ class BaseDemodulator(object):
     '''Base class for demodulators.'''
 
     # subclass registry
-    subclasses = {}
+    _subclasses = {}
 
     def __init__(self, top_block, quad_rate, audio_decimation, in_blk, out_blk,
                  out_blk_idx):
@@ -835,21 +835,27 @@ class BaseDemodulator(object):
 
         demod_type = demod_type.lower()
         def decorator(subclass):
-            cls.subclasses[demod_type] = subclass
+            cls._subclasses[demod_type] = subclass
             return subclass
 
         return decorator
+    
+    @classmethod
+    def get_supported_modulations(cls):
+        """returns a list of supported modulations."""
+        
+        return cls._subclasses.keys()
 
     @classmethod
     def create(cls, demod_type, top_block, quad_rate, audio_decimation, in_blk,
                out_blk, out_blk_idx):
         '''Create a new class of the given type.'''
 
-        if demod_type not in cls.subclasses:
+        if demod_type not in cls._subclasses:
             raise ValueError('Invalid demodulator type {dt}'.
                              format(dt=demod_type))
 
-        return cls.subclasses[demod_type](top_block, quad_rate, audio_decimation,
+        return cls._subclasses[demod_type](top_block, quad_rate, audio_decimation,
                                           in_blk, out_blk, out_blk_idx)
 
 @BaseDemodulator.register_subclass('')
