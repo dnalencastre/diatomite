@@ -653,6 +653,17 @@ class DiaConfParser(object):
                                ' radio source Type definition')
                         raise DiaConfParserError(msg)
 
+                    # check if it is a supported radio source type
+                    if (this_r_source['type'].lower() not in
+                            radiosource.RadioSource.get_supported_devs()):
+
+                        this_r_source['type'] = ''
+                        msg = ('FATAL: configuration error, malformed'
+                               ' listener modulation option')
+                        raise DiaConfParserError(msg)
+                    else:
+                        this_r_source['type'] = this_r_source['type'].lower()
+
                     # test if frequency is defined
                     if 'frequency' not in this_r_source:
                         msg = ('FATAL: configuration error, missing'

@@ -815,14 +815,14 @@ class Location(object):
 
 
 class BaseDemodulator(object):
-    '''Base class for demodulators.'''
+    """Base class for demodulators."""
 
     # subclass registry
     _subclasses = {}
 
     def __init__(self, top_block, quad_rate, audio_decimation, in_blk, out_blk,
                  out_blk_idx):
-        '''Store initialization data.'''
+        """Store initialization data."""
         self._quad_rate = quad_rate
         self._audio_decimation = audio_decimation
         self._in_blk = in_blk
@@ -832,7 +832,7 @@ class BaseDemodulator(object):
 
     @classmethod
     def register_subclass(cls, demod_type):
-        """Register a demodulator class, stores demodulater type in lower case."""
+        """Register a demodulator class, stores demodulator type in lower case."""
         demod_type = demod_type.lower()
         def decorator(subclass):
             cls._subclasses[demod_type] = subclass

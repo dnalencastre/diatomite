@@ -62,38 +62,11 @@ class RadioSourceError(Exception):
     pass
 
 
-class RadioSourceSupportedDevsError(Exception):
-    """Raised when a RadioSourceSupportedDevs encounters an error."""
-    pass
-
-
 class RadioSourceSate(object):
     """Define possible states for a radio a receiver."""
     STATE_PRE_INIT = 0
     STATE_OK = 1
     STATE_FAILED = 2
-
-
-class RadioSourceSupportedDevs(object):
-    """Define the supported rf devices and their classes"""
-
-    _supported_dev_dict = {'RTL2832U': {'class': 'RTL2832URadioSource'}}
-
-    def get_supported_devs(self):
-        """returns a list of supported devices."""
-
-        return self._supported_dev_dict.keys()
-
-    def get_dev_class(self, dev_name):
-        """Returns a string with the class name for a device."""
-
-        if dev_name in self._supported_dev_dict.keys():
-            return self._supported_dev_dict[dev_name]['class']
-        else:
-            msg = ('Unsupported radio device {rd}.'
-                   ' Choose one of:{dl}').format(rd=dev_name,
-                                                 dl=self.get_supported_devs())
-            raise RadioSourceSupportedDevsError(msg)
 
 
 class RadioSources(object):
@@ -219,39 +192,28 @@ class RadioSources(object):
         conf -- a dictionary with a valid configuration
             (use DiaConfParser to obtain a valid config)"""
 
-        r_source_type = conf['type']
+        r_source_type = conf['type'].lower()
         r_source_id = conf['id']
 
         if r_source_id in self._radio_source_dict.keys():
             msg = 'Radio Source {id} Already present'.format(id=r_source_id)
             raise RadioSourceListIdNotUniqueError(msg)
 
-        # check if the radio source type is valid and set the class accordingly
-        supported_devs = RadioSourceSupportedDevs()
-        try:
-            radio_source_class = supported_devs.get_dev_class(r_source_type)
-        except RadioSourceSupportedDevsError:
-            raise
-
         # prepare the sources input queue
         source_input_queue = Queue()
 
         self._radio_source_input_queue_dict[r_source_id] = source_input_queue
 
-        # set the class to be use:
-        msg = ('Will use radio source'
-               ' class "{rsc}"').format(rsc=radio_source_class)
-        logging.debug(msg)
+        # configure the radio source
+        try:
+            r_source = RadioSource.create(r_source_type, conf,
+                                          source_input_queue,
+                                          self.get_out_queue(),
+                                          self.get_log_dir_path(),
+                                          self.get_tap_dir_path())
+        except ValueError:
+            raise
 
-        # determine the class to use from the type declared on the
-        # configuration file for this source
-        thismodule = sys.modules[__name__]
-        rs_class_ = getattr(thismodule, radio_source_class)
-        r_source = rs_class_(conf,
-                             source_input_queue,
-                             self.get_out_queue(),
-                             self.get_log_dir_path(),
-                             self.get_tap_dir_path())
         self._radio_source_dict[r_source_id] = r_source
 
 
@@ -259,6 +221,9 @@ class RadioSource(object):
     """Define a radio source.
     This usually relates to the radio hardware
     """
+
+    # subclass registry
+    _subclasses = {}
 
     # set the spectrum limits to RF
     # define minimum and maximum frequencies that are
@@ -360,6 +325,41 @@ class RadioSource(object):
                                                lp=log_dir_path,
                                                tp=tap_dir_path)
             raise RadioSourceError(msg)
+
+    @classmethod
+    def register_subclass(cls, receiver_type):
+        """Register a demodulator class, stores receiver type in lower case."""
+        receiver_type = receiver_type.lower()
+        def decorator(subclass):
+            cls._subclasses[receiver_type] = subclass
+            return subclass
+
+        return decorator
+
+    @classmethod
+    def get_supported_devs(cls):
+        """returns a list of supported devices."""
+
+        return cls._subclasses.keys()
+
+    @classmethod
+    def create(cls, receiver_type, conf, in_queue, out_queue, log_dir_path,
+               tap_dir_path):
+        """Create a new class of the given type.
+        receiver_type - string with the receiver type
+        conf -- a dictionary with a valid configuration
+                (use DiaConfParser to obtain a valid config)
+        in_queue -- queue to be used as input for this radio source
+        out_queue -- queue to be used as output for radio sources
+        log_dir_path -- path where logs will be written
+        tap_dir_path -- path where taps wil be created"""
+
+        if receiver_type not in cls._subclasses:
+            raise ValueError('Invalid receiver type {dt}'.
+                             format(dt=receiver_type))
+
+        return cls._subclasses[receiver_type](conf, in_queue, out_queue,
+                                              log_dir_path, tap_dir_path)
 
     def configure(self, conf, in_queue, out_queue, log_dir_path, tap_dir_path):
         """Configure the radio source object.
@@ -1117,6 +1117,7 @@ class RadioSource(object):
         self.send_data(new_msg)
 
 
+@RadioSource.register_subclass('RTL2832U')
 class RTL2832URadioSource(RadioSource):
     """Defines a radio source hardware with  RTL2832U receiver
      and a R820T2 tuner."""
