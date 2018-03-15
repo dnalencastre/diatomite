@@ -24,7 +24,11 @@ from multiprocessing import Process, Queue
 from multiprocessing import queues as mp_queues
 import threading
 import json
+import re
+# TODO: cleanup
 import bottle
+from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from SocketServer import ThreadingMixIn
 import diatomite_aux as dia_aux
 
 
@@ -275,9 +279,17 @@ class ApiSvc(object):
         self._monitor_input_queue_thread.daemon = True
         self._monitor_input_queue_thread.start()
 
-        # start flask
-        api = DiaApi('DiatomiteAPI', self._data)
-        api.run(host='localhost', port=8000)
+        # TODO: get host name from config
+        srv_host_name = 'localhost'
+        # TODO: get port from config
+        srv_port = 8000
+        api = DiaApiSrv(self._data, srv_host_name, srv_port)
+        api.start()
+
+# TODO: cleanup
+#         # start flask
+#         api = OldDiaApi('DiatomiteAPI', self._data)
+#         api.run(host='localhost', port=8000)
 
         msg = 'API server exiting.'.format(id=self.get_id())
         logging.debug(msg)
@@ -286,19 +298,146 @@ class ApiSvc(object):
     def get_site(self):
         """Get site data"""
         return self._data
+    
+    
+class ApiRequestHandler(BaseHTTPRequestHandler):
+    """Class to handle api requests"""
+    
+    data = None
+    _base_url = '/diatomite'
+    
+    
+    def do_HEAD(self):
+        """Handle Head requests"""
+        self.process_get_and_head(True)
+        
+    def do_POST(self):
+        """Handle post requests"""
+        
+        status = 405
+        self.send_response(status)
+        self._send_json_headers()
+        self.end_headers()
+        msg = 'Post is not allow.'
+        title = "Hey, you can't really mess with this data.\n Seriously!"
+        self._send_error_json_body(status, title, self.path, msg)
+        return        
+        
+    
+    def do_GET(self):
+        """Handle get requests"""
+        self.process_get_and_head()
+        
+    def process_get_and_head(self, only_header=False):
+        """Process responses for get and head requests, and send appropriate responses.
+        only_header -- boolean, if true, will not send message body"""
 
-class DiaApi(bottle.Bottle):
+        # check if it's on the base url
+        if None != re.search(self._base_url+'/*', self.path):
+
+            # check if we are being asked for sites
+            if None != re.search(self._base_url+'/sites', self.path):
+                self.send_response(200)
+                self._send_json_headers()
+                self.end_headers()
+                if not only_header:
+                    self.wfile.write(json.dumps(self.data,
+                                                cls=dia_aux.DataDumpEnconder))
+                
+                # TODO: process down the hierarchy of possible data requests
+                # Check if we are being asked for probes
+                    # check if we are being asked for a specific probe
+                        # check if we are being asked for radiosources on this probe
+                            # check if we are being asked for a specific radiosource
+                                # check if we are being asked for listeners
+                                    # check if we are being asked for a specific listener
+                                        # check if we are being asked for the signal state
+                                            # check if we are being asked for the current state
+                                            # check if we are being asked for the previous state
+
+            else:
+                status = 403
+                self.send_response(status)
+                self._send_json_headers()
+                self.end_headers()
+                msg = 'Path exists but there is no data of any use.'
+                title = 'Unavailable data'
+                if not only_header:
+                    self._send_error_json_body(status, title, self.path, msg)                  
+
+        else:
+            status = 403
+            self.send_response(status)
+            self._send_json_headers()
+            self.end_headers()
+            msg = 'Path does not exist.'
+            title = 'Unavailable data'
+            if not only_header:
+                self._send_error_json_body(status, title, self.path, msg)
+        return
+    
+    def _send_json_headers(self):
+        """send json http headers"""
+        self.send_header('Content-type', 'application/json')
+        
+    def _send_error_json_body(self, status_code, title, url, msg):
+        """send a json with the error encountered
+        status_code -- the http status code
+        title -- message title
+        url -- the requested url
+        msg -- message to be served"""
+        
+        error_data = {"errors":[
+            {"status":str(status_code),
+             "source": { "pointer": url },
+             "title": title,
+             "detail": msg
+             }]}
+
+        self.wfile.write(json.dumps(error_data))
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    allow_reuse_address = True
+
+
+class DiaApiSrv(ThreadingMixIn, HTTPServer):
+    """Class to provide an API server for Diatomite"""
+
+    def __init__(self, data, srv_host_name, srv_port):
+        """Initialize the api server
+        data -- data to serve,
+        srv_host_name -- local host name or address where server will attach
+        srv_port -- port were server will attach"""
+
+        self._data = data
+        self._srv_host_name = srv_host_name
+        self._srv_port = srv_port
+        self._api_srv = ThreadedHTTPServer((self._srv_host_name, 
+                                            self._srv_port),
+                                            ApiRequestHandler)
+ 
+        # set the data for the handler       
+        ApiRequestHandler.data = self._data
+
+    def start(self):
+        """start the api server"""
+        self._api_srv.serve_forever()
+
+# TODO: cleanup
+############# Old Bottle implementation
+class OldDiaApi(bottle.Bottle):
     """Class to provide an API server for Diatomite"""
 
     _base_url = '/diatomite'
 
     def __init__(self, name, data):
-
-        super(DiaApi, self).__init__()
+ 
+        super(OldDiaApi, self).__init__()
         self.name = name
         self._set_routes()
         self._data = data
-
+ 
     def _set_routes(self):
         """Set routes for the api"""
         self.route(self._base_url + '/sites', callback=self.get_sites, method='GET')
@@ -327,114 +466,114 @@ class DiaApi(bottle.Bottle):
                    callback=self.get_listener_current_signal_state, method='GET')
         self.route(self._base_url + '/sites/<site>/probes/<probe>/radiosources/<source>/listeners/<listener>/current_signal_state',
                    callback=self.get_listener_current_signal_state, method='GET')
-
-
+ 
+ 
     def get_sites(self):
         """Get all sites know to this probe"""
         bottle.response.headers['Content-Type'] = 'application/json'
         return json.dumps(self._data, cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_site(self, site):
         """Get a site,
         site -- site id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         return json.dumps(self._data[site], cls=dia_aux.DataDumpEnconder)
-
-
+ 
+ 
     def get_probes(self, site):
         """GEt all probes from a site
         site -- site id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         return json.dumps(self._data[site]['probes'],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_probe(self, site, probe):
         """GEt a probe from a site
         site -- site id
         probe -- probe id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         return json.dumps(self._data[site]['probes'][probe],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_sources(self, site, probe):
         """Get all sources from a probe
         site -- site id
         probe -- probe id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         this_probe = self._data[site]['probes'][probe]
-
+ 
         return json.dumps(this_probe['RadioSources'],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_source(self, site, probe, source):
         """Get a source from a probe
         site -- site id
         probe -- probe id
         source -- source id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         this_probe = self._data[site]['probes'][probe]
-
+ 
         return json.dumps(this_probe['RadioSources'][source],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_listeners(self, site, probe, source):
         """Get all listeners from a source
         site -- site id
         probe -- probe id
         source -- source id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         this_probe = self._data[site]['probes'][probe]
         this_source = this_probe['RadioSources'][source]
-
+ 
         return json.dumps(this_source['listeners'],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_listener(self, site, probe, source, listener):
         """Get a listener from a source
         site -- site id
@@ -442,21 +581,21 @@ class DiaApi(bottle.Bottle):
         source -- source id
         listener -- listener id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         this_probe = self._data[site]['probes'][probe]
         this_source = this_probe['RadioSources'][source]
-
+ 
         return json.dumps(this_source['listeners'][listener],
                           cls=dia_aux.DataDumpEnconder)
-
+ 
     def get_listener_current_signal_state(self, site, probe, source, listener):
         """Get a listener's current state
         site -- site id
@@ -464,17 +603,17 @@ class DiaApi(bottle.Bottle):
         source -- source id
         listener -- listener id"""
         bottle.response.headers['Content-Type'] = 'application/json'
-
+ 
         if site not in self._data:
             bottle.response.status = 400
             return
-
+ 
         if probe not in self._data[site]['probes']:
             bottle.response.status = 400
             return
-
+ 
         this_probe = self._data[site]['probes'][probe]
         this_source = this_probe['RadioSources'][source]
-
+ 
         return json.dumps(this_source['listeners'][listener]['signal_state']['current'],
                           cls=dia_aux.DataDumpEnconder)
